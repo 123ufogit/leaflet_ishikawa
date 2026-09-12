@@ -345,11 +345,45 @@
         <section class="help-section">
           <h3>🗺️ 基本操作</h3>
           <ul class="help-list">
-            <li>ファイルをパネル枠または地図へ<strong>ドラッグ＆ドロップ</strong>で読み込み</li>
+            <li>ファイルをパネル枠または地図へ<strong>ドラッグ＆ドロップ</strong>で瞬時に読み込み</li>
             <li>GPS情報のない写真は<strong>撮影位置の特定モード</strong>で地図上にピン留め可能</li>
-            <li>読み込んだレイヤーはパネルから表示切替・削除できます</li>
-            <li>GeoJSON・KML・PDF/PNGへのエクスポートに対応</li>
-            <li><kbd>Esc</kbd> キーでモーダルを閉じます</li>
+            <li>「作図・計測ツール」で距離・面積の計測や手描きポリゴン・ピンの追加が可能</li>
+            <li><kbd>Esc</kbd> キーで各種モーダルや編集モードを閉じます</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h3>📱 スマホ機能・GPSトラッキング</h3>
+          <ul class="help-list">
+            <li><strong>現在地・追尾</strong>: 画面左下の 🧭 コンパスボタンをタップすると「現在地表示 ⇄ 追従」が切り替わります。</li>
+            <li><strong>GPSトラック記録</strong>: 🧭 コンパスボタンを<strong>2秒以上長押し</strong>すると、トラッキングを開始（赤色点滅の「REC」バッジ表示）。再度2秒長押しで停止します。</li>
+            <li><strong>10秒間隔取得</strong>: バックグラウンドで10秒に1回GPS位置を取得・記録し、他の全機能も並行して使用可能です。</li>
+            <li><strong>同日セッション追記</strong>: 記録したトラックはレイヤリストに「トラック＋日付」（例: <code>トラック20260912</code>）として登録され、同日中に再開した場合は同じレイヤに自動追記されます。</li>
+            <li><strong>誤操作・離脱防止</strong>: トラッキング中はページのリロードや移動時に自動で警告ダイアログが表示されます。</li>
+            <li><strong>オフライン地図</strong>: 画面左下の 🌐 ボタンで、事前にキャッシュした地図データを電波のない山間部でも表示可能です。</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h3>✏️ 図形の編集・作図</h3>
+          <ul class="help-list">
+            <li><strong>編集開始</strong>: 地図上のポイント、ライン、ポリゴンを<strong>2秒以上長押し</strong>すると編集モードに入ります。</li>
+            <li><strong>頂点編集</strong>: 各頂点ハンドルをドラッグして移動、中間ハンドルで頂点追加、頂点右クリックで削除。</li>
+            <li><strong>ポイント移動</strong>: ポイントのピンク色ハンドルをドラッグして任意の位置へ移動。</li>
+            <li><strong>新規図形追加</strong>: 上部編集バーの「＋ 新規 ▾」からポイント・ライン・ポリゴンを追加作図。</li>
+            <li><strong>図形削除</strong>: 編集中の図形を選択して「🗑️ 削除」ボタン（または <kbd>Delete</kbd> キー）で削除。</li>
+            <li><strong>保存と復元</strong>: 「✓ 編集を保存」でレイヤに確定（未保存ステータス管理）、「✕ 保存しない」で編集前の状態へ完全復元。</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h3>⚙️ 設定・エクスポート・便利ショートカット</h3>
+          <ul class="help-list">
+            <li><strong>エクスポート形式の切替</strong>: パネル内の <strong>⚙️（設定）ボタン</strong> から、GeoJSON / KML / PDF / PNG を自由に切り替え可能です（設定はブラウザに自動保存）。</li>
+            <li><strong>ワンクリック自動ダウンロード</strong>: パネル内の「💾 エクスポート」ボタンを押すと、選択中の形式で即座に自動ダウンロードされます。</li>
+            <li><strong>レイヤ名変更</strong>: レイヤーリストのレイヤ名を<strong>2秒以上長押し</strong>するとその場で名前を編集でき、エクスポート時のファイル名にもそのまま反映されます。</li>
+            <li><strong>レイヤ全体にズーム</strong>: レイヤーリストの <strong>👁 ボタンを2秒以上長押し</strong>すると、そのレイヤーの全範囲へスムーズに自動ズームします。</li>
+            <li><strong>オフラインキャッシュ管理</strong>: ⚙️ 設定メニューから保存済みタイル数・容量の確認やキャッシュ消去が可能です。</li>
           </ul>
         </section>
 
