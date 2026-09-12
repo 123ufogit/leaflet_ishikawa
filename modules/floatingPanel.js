@@ -627,6 +627,15 @@
         return;
       }
 
+      // 小班はズーム15以上限定レイヤーのため、全体範囲（能登全域・ズーム10）に引いて消えるのを防ぎ、密集エリア（輪島市）へズーム15.5で直行
+      if (entry.name === '小班') {
+        GIS.AppState.map.flyTo([37.320, 136.745], 15.5, { duration: 1.2 });
+        if (GIS.UI && GIS.UI.showToast) {
+          GIS.UI.showToast(`🔍 「小班」の密集エリア（輪島市）へズームしました（ズーム15以上）`, 'info');
+        }
+        return;
+      }
+
       const bounds = this._getLayerBounds(entry);
       if (bounds && bounds.isValid()) {
         const isPoint = bounds.getNorthEast().equals(bounds.getSouthWest());
