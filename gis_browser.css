@@ -2910,6 +2910,64 @@ html, body {
   }
 }
 
+/* トラッキング長押し中 */
+.btn-mobile-floating.is-pressing-compass {
+  transform: scale(1.18);
+  border-color: #ef4444;
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.85);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* トラッキング記録中 (REC) スタイル */
+.btn-mobile-floating.is-recording-track {
+  border-color: #ef4444 !important;
+  background: rgba(127, 29, 29, 0.9) !important;
+  animation: pulseTrackRecording 1.5s infinite !important;
+  position: relative;
+}
+
+.btn-mobile-floating.is-recording-track::after {
+  content: "REC";
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.9);
+  letter-spacing: 0.5px;
+  animation: blinkRec 1s ease-in-out infinite alternate;
+}
+
+@keyframes pulseTrackRecording {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8);
+  }
+  70% {
+    box-shadow: 0 0 0 16px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+@keyframes blinkRec {
+  from { opacity: 1; }
+  to { opacity: 0.35; }
+}
+
+.btn-mobile-floating.track-triggered {
+  animation: trackTriggerFlash 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes trackTriggerFlash {
+  0% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
 /* オフラインボタン状態別スタイル */
 .btn-mobile-floating.mode-offline {
   border-color: #f59e0b;
