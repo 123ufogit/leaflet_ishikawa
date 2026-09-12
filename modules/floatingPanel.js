@@ -88,6 +88,12 @@
         }
       });
       GIS.AppState.on('layerRemoved', ({ id }) => {
+        if (GIS.AppState.selectedLayerId === id) {
+          GIS.AppState.selectedLayerId = null;
+          if (GIS.ExportHandler && GIS.ExportHandler.updateUIBadge) {
+            GIS.ExportHandler.updateUIBadge();
+          }
+        }
         this._removeLayerItem(id);
         if (GIS.ZoningHandler) {
           GIS.ZoningHandler.updateAllMaskSelectOptions();
@@ -102,6 +108,10 @@
         }
       });
       GIS.AppState.on('allLayersCleared', () => {
+        GIS.AppState.selectedLayerId = null;
+        if (GIS.ExportHandler && GIS.ExportHandler.updateUIBadge) {
+          GIS.ExportHandler.updateUIBadge();
+        }
         this._clearLayerList();
         if (GIS.ZoningHandler) {
           GIS.ZoningHandler.updateAllMaskSelectOptions();
@@ -119,6 +129,56 @@
       btn.textContent = this._collapsed ? '⌄' : '⌃';
       btn.title = this._collapsed ? '展開する' : '折りたたむ';
       this._panel.classList.toggle('collapsed', this._collapsed);
+    },
+
+    /**
+     * パネルを閉じる（折りたたむ）
+     */
+    collapse() {
+      if (!this._collapsed) {
+        this.toggleCollapse();
+      }
+    },
+
+    /**
+     * パネルを開く（展開する）
+     */
+    expand() {
+      if (this._collapsed) {
+        this.toggleCollapse();
+      }
+    },
+
+    /**
+     * レイヤーの選択/選択解除（エクスポート対象レイヤー指定用）
+     * @param {string} layerId
+     */
+    selectLayer(layerId) {
+      if (GIS.AppState.selectedLayerId === layerId) {
+        GIS.AppState.selectedLayerId = null;
+      } else {
+        GIS.AppState.selectedLayerId = layerId;
+      }
+      this._updateSelectedLayerUI();
+      if (GIS.ExportHandler && GIS.ExportHandler.updateUIBadge) {
+        GIS.ExportHandler.updateUIBadge();
+      }
+    },
+
+    /**
+     * 選択中レイヤーのUI（ハイライト）を反映
+     */
+    _updateSelectedLayerUI() {
+      const selectedId = GIS.AppState.selectedLayerId;
+      const list = document.getElementById('layer-list');
+      if (!list) return;
+      list.querySelectorAll('.layer-item').forEach(li => {
+        if (li.dataset.layerId === selectedId) {
+          li.classList.add('selected');
+        } else {
+          li.classList.remove('selected');
+        }
+      });
     },
 
     /**
@@ -229,8 +289,8 @@
       if (!entry) return false;
       if (entry.isLayerSet) return true;
       if (GIS.NotoLidarHandler && GIS.NotoLidarHandler.layerIds && GIS.NotoLidarHandler.layerIds.includes(entry.id)) return true;
-      if (GIS.ForestRoadHandler && (entry.id === GIS.ForestRoadHandler.keneirinLayerId || entry.id === GIS.ForestRoadHandler.roadLayerId)) return true;
-      if (entry.name === '県営林' || entry.name === '能登半島LiDAR' || entry.name === '林道台帳' || entry.name === '県営林（ポリゴン）' || entry.name === '林道台帳（ライン）') return true;
+      if (GIS.ForestRoadHandler && (entry.id === GIS.ForestRoadHandler.keneirinLayerId || entry.id === GIS.ForestRoadHandler.shohanLayerId || entry.id === GIS.ForestRoadHandler.roadLayerId)) return true;
+      if (entry.name === '県営林' || entry.name === '小班' || entry.name === '能登半島LiDAR' || entry.name === '林道台帳' || entry.name === '県営林（ポリゴン）' || entry.name === '林道台帳（ライン）') return true;
       return false;
     },
 
@@ -295,6 +355,18 @@
 
       if (isGeoTiff && GIS.ZoningHandler) {
         GIS.ZoningHandler.bindDrawerEvents(entry.id, li);
+      }
+
+      // レイヤー行クリックによる選択/選択解除（エクスポート対象指定用）
+      li.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.layer-zoning-drawer')) {
+          return;
+        }
+        this.selectLayer(entry.id);
+      });
+
+      if (GIS.AppState.selectedLayerId === entry.id) {
+        li.classList.add('selected');
       }
 
       list.appendChild(li);
@@ -722,7 +794,7 @@
      * @returns {string}
      */
     _getTypeIcon(type) {
-      const icons = { kml: '🗺️', geojson: '📐', image: '📷', geotiff: '🛰️', pin: '📍' };
+      const icons = { kml: '🗺️', geojson: '📐', image: '📷', geotiff: '🛰️', pin: '📍', track: '🚶' };
       return icons[type] || '📄';
     }
   };

@@ -161,8 +161,8 @@
       if (!entry || !entry.layer) return;
 
       // 編集対象外のレイヤー種別（配信タイル、GeoTIFF、画像、明示的editable:false、県営林レイヤ等）を除外
-      if (entry.editable === false || entry.name === '県営林' ||
-          (GIS.ForestRoadHandler && entry.id === GIS.ForestRoadHandler.keneirinLayerId)) {
+      if (entry.editable === false || entry.name === '県営林' || entry.name === '小班' ||
+          (GIS.ForestRoadHandler && (entry.id === GIS.ForestRoadHandler.keneirinLayerId || entry.id === GIS.ForestRoadHandler.shohanLayerId))) {
         return;
       }
       if (entry.type === 'tile' || entry.type === 'geotiff' || entry.type === 'image' || entry.type === 'vectorgrid') {
@@ -235,8 +235,8 @@
         if (this._isEditing) return;
         if (GIS.AppState && GIS.AppState.layers) {
           const ent = GIS.AppState.layers.get(entryId);
-          if (ent && (ent.editable === false || ent.name === '県営林' ||
-              (GIS.ForestRoadHandler && ent.id === GIS.ForestRoadHandler.keneirinLayerId))) {
+          if (ent && (ent.editable === false || ent.name === '県営林' || ent.name === '小班' ||
+              (GIS.ForestRoadHandler && (ent.id === GIS.ForestRoadHandler.keneirinLayerId || ent.id === GIS.ForestRoadHandler.shohanLayerId)))) {
             return;
           }
         }
@@ -327,11 +327,11 @@
         return;
       }
 
-      // 県営林など編集不可レイヤーの場合は拒否
-      if (entry.editable === false || entry.name === '県営林' ||
-          (GIS.ForestRoadHandler && entry.id === GIS.ForestRoadHandler.keneirinLayerId)) {
+      // 県営林・小班など編集不可レイヤーの場合は拒否
+      if (entry.editable === false || entry.name === '県営林' || entry.name === '小班' ||
+          (GIS.ForestRoadHandler && (entry.id === GIS.ForestRoadHandler.keneirinLayerId || entry.id === GIS.ForestRoadHandler.shohanLayerId))) {
         if (GIS.UI && GIS.UI.showToast) {
-          GIS.UI.showToast('ℹ️ 『県営林』は参照専用レイヤーのため編集対象外です', 'info');
+          GIS.UI.showToast(`ℹ️ 『${entry.name}』は参照専用レイヤーのため編集対象外です`, 'info');
         }
         return;
       }

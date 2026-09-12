@@ -43,13 +43,25 @@
 
     updateUIBadge() {
       const badge = document.getElementById('unified-export-badge');
+      const labels = { geojson: 'GeoJSON', kml: 'KML', pdf: 'PDF', png: 'PNG' };
+      const currentFmt = this.currentFormat || 'geojson';
+
       if (badge) {
-        const labels = { geojson: 'GeoJSON', kml: 'KML', pdf: 'PDF', png: 'PNG' };
-        badge.textContent = labels[this.currentFormat] || 'GeoJSON';
+        if (currentFmt === 'geojson' || currentFmt === 'kml') {
+          const selectedId = GIS.AppState ? GIS.AppState.selectedLayerId : null;
+          const selectedEntry = selectedId && GIS.AppState.layers ? GIS.AppState.layers.get(selectedId) : null;
+          if (selectedEntry) {
+            badge.textContent = `${labels[currentFmt]}: ${selectedEntry.name}`;
+          } else {
+            badge.textContent = `${labels[currentFmt]} (レイヤ未選択)`;
+          }
+        } else {
+          badge.textContent = labels[currentFmt] || 'GeoJSON';
+        }
       }
       const radios = document.querySelectorAll('input[name="export-format-radio"]');
       radios.forEach(r => {
-        if (r.value === this.currentFormat) r.checked = true;
+        if (r.value === currentFmt) r.checked = true;
       });
     },
 
@@ -81,118 +93,140 @@
     },
 
     /**
-     * AppState 内の全ベクトルレイヤー (手描きポリゴン、KML、GeoJSON) の Feature 一覧を取得
+     * 単一レイヤーエントリから Feature 一覧を抽出
      */
-    _getVectorFeatures() {
+    _getFeaturesForEntry(entry) {
       const features = [];
-      if (!GIS.AppState || !GIS.AppState.layers) return features;
+      if (!entry) return features;
 
-      GIS.AppState.layers.forEach((entry) => {
-        if (entry.type === 'geotiff' || entry.type === 'pin') return;
+      let geojson = entry.rawGeoJSON;
+      if (!geojson && entry.layer && typeof entry.layer.toGeoJSON === 'function') {
+        try { geojson = entry.layer.toGeoJSON(); } catch (_) {}
+      }
 
-        let geojson = entry.rawGeoJSON;
-        if (!geojson && entry.layer && typeof entry.layer.toGeoJSON === 'function') {
-          try { geojson = entry.layer.toGeoJSON(); } catch (_) {}
-        }
+      if (!geojson) return features;
 
-        if (!geojson) return;
-
-        if (geojson.type === 'FeatureCollection' && Array.isArray(geojson.features)) {
-          geojson.features.forEach(f => {
-            const copy = JSON.parse(JSON.stringify(f));
-            if (!copy.properties) copy.properties = {};
-            copy.properties.layerName = entry.name;
-            if (!copy.properties.name) copy.properties.name = entry.name;
-            features.push(copy);
-          });
-        } else if (geojson.type === 'Feature') {
-          const copy = JSON.parse(JSON.stringify(geojson));
+      if (geojson.type === 'FeatureCollection' && Array.isArray(geojson.features)) {
+        geojson.features.forEach(f => {
+          const copy = JSON.parse(JSON.stringify(f));
           if (!copy.properties) copy.properties = {};
-          copy.properties.layerName = entry.name;
           if (!copy.properties.name) copy.properties.name = entry.name;
           features.push(copy);
-        } else if (geojson.type && geojson.coordinates) {
-          features.push({
-            type: 'Feature',
-            geometry: geojson,
-            properties: { name: entry.name, layerName: entry.name }
-          });
-        }
-      });
+        });
+      } else if (geojson.type === 'Feature') {
+        const copy = JSON.parse(JSON.stringify(geojson));
+        if (!copy.properties) copy.properties = {};
+        if (!copy.properties.name) copy.properties.name = entry.name;
+        features.push(copy);
+      } else if (geojson.type && geojson.coordinates) {
+        features.push({
+          type: 'Feature',
+          geometry: geojson,
+          properties: { name: entry.name }
+        });
+      }
       return features;
     },
 
     /**
-     * 全ピンおよびベクトルデータ (ポリゴン等) をGeoJSON形式でダウンロードする
+     * 選択された対象レイヤーをGeoJSON形式でダウンロードする（選択時のみ有効）
      */
     exportGeoJSON() {
-      const pins = GIS.AppState.pins || [];
-      const vectorFeatures = this._getVectorFeatures();
-
-      if (!pins.length && !vectorFeatures.length) {
-        GIS.UI.showToast('⚠️ エクスポートするデータ（ピンまたはポリゴン等）がありません', 'warn');
+      const selectedId = GIS.AppState ? GIS.AppState.selectedLayerId : null;
+      if (!selectedId) {
+        GIS.UI.showToast('⚠️ エクスポートする対象レイヤーをレイヤーリストから選択してください', 'warn');
+        if (GIS.FloatingPanel) {
+          GIS.FloatingPanel.expand();
+        }
         return;
       }
 
-      const pinFeatures = pins.map(pin => ({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [pin.latlng.lng, pin.latlng.lat]
-        },
-        properties: {
-          name:      pin.filename,
-          filename:  pin.filename,
-          is360:     pin.is360,
-          timestamp: new Date().toISOString()
-        }
-      }));
+      const entry = GIS.AppState.layers.get(selectedId);
+      if (!entry) {
+        GIS.AppState.selectedLayerId = null;
+        this.updateUIBadge();
+        GIS.UI.showToast('⚠️ 選択されたレイヤーが見つかりません。リストから再選択してください', 'warn');
+        return;
+      }
 
-      const features = [...pinFeatures, ...vectorFeatures];
+      const vectorFeatures = this._getFeaturesForEntry(entry);
+      // 写真ピンレイヤーの場合
+      const isPinLayer = entry.type === 'pin' || entry.name.includes('写真') || entry.name.includes('ピン');
+      let pinFeatures = [];
+      if (isPinLayer && GIS.AppState.pins && GIS.AppState.pins.length) {
+        pinFeatures = GIS.AppState.pins.map(pin => ({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [pin.latlng.lng, pin.latlng.lat]
+          },
+          properties: {
+            name: pin.filename,
+            filename: pin.filename,
+            is360: pin.is360,
+            timestamp: new Date().toISOString()
+          }
+        }));
+      }
+
+      const allFeatures = [...pinFeatures, ...vectorFeatures];
+      if (!allFeatures.length) {
+        GIS.UI.showToast(`⚠️ レイヤー『${entry.name}』にはエクスポート可能なベクターデータがありません`, 'warn');
+        return;
+      }
 
       const geojson = {
         type: 'FeatureCollection',
-        features,
+        features: allFeatures,
         metadata: {
-          created:   new Date().toISOString(),
+          layerName: entry.name,
+          created: new Date().toISOString(),
           generator: 'GIS Browser - Leaflet WebGIS',
-          count:     features.length
+          count: allFeatures.length
         }
       };
 
       const json = JSON.stringify(geojson, null, 2);
-
-      // 単一レイヤー名があればそれをファイル名に反映
-      let filename = `gis_export_${this._timestamp()}.geojson`;
-      const vectorEntries = [];
-      if (GIS.AppState && GIS.AppState.layers) {
-        GIS.AppState.layers.forEach(e => {
-          if (e.type !== 'geotiff' && e.type !== 'pin' && e.type !== 'tile') {
-            vectorEntries.push(e);
-          }
-        });
-      }
-      if (vectorEntries.length === 1 && vectorEntries[0].name) {
-        filename = `${vectorEntries[0].name}_${this._timestamp()}.geojson`;
-      }
+      const filename = `${entry.name}_${this._timestamp()}.geojson`;
 
       this._download(
         new Blob([json], { type: 'application/geo+json' }),
         filename
       );
 
-      GIS.UI.showToast(`✅ GeoJSONを保存しました (ピン: ${pinFeatures.length}, 図形: ${vectorFeatures.length})`, 'success');
+      GIS.UI.showToast(`✅ 『${entry.name}』(${allFeatures.length}件) をGeoJSON形式で保存しました`, 'success');
     },
 
     /**
-     * 全ピンおよびベクトルデータ (ポリゴン等) をKML形式でダウンロードする
+     * 選択された対象レイヤーをKML形式でダウンロードする（選択時のみ有効）
      */
     exportKML() {
-      const pins = GIS.AppState.pins || [];
-      const vectorFeatures = this._getVectorFeatures();
+      const selectedId = GIS.AppState ? GIS.AppState.selectedLayerId : null;
+      if (!selectedId) {
+        GIS.UI.showToast('⚠️ エクスポートする対象レイヤーをレイヤーリストから選択してください', 'warn');
+        if (GIS.FloatingPanel) {
+          GIS.FloatingPanel.expand();
+        }
+        return;
+      }
+
+      const entry = GIS.AppState.layers.get(selectedId);
+      if (!entry) {
+        GIS.AppState.selectedLayerId = null;
+        this.updateUIBadge();
+        GIS.UI.showToast('⚠️ 選択されたレイヤーが見つかりません。リストから再選択してください', 'warn');
+        return;
+      }
+
+      const vectorFeatures = this._getFeaturesForEntry(entry);
+      const isPinLayer = entry.type === 'pin' || entry.name.includes('写真') || entry.name.includes('ピン');
+      let pins = [];
+      if (isPinLayer && GIS.AppState.pins && GIS.AppState.pins.length) {
+        pins = GIS.AppState.pins;
+      }
 
       if (!pins.length && !vectorFeatures.length) {
-        GIS.UI.showToast('⚠️ エクスポートするデータ（ピンまたはポリゴン等）がありません', 'warn');
+        GIS.UI.showToast(`⚠️ レイヤー『${entry.name}』にはエクスポート可能なデータがありません`, 'warn');
         return;
       }
 
@@ -220,7 +254,7 @@
     </Placemark>`).join('\n');
 
       const vectorPlacemarks = vectorFeatures.map((f, i) => {
-        const name = this._escXml(f.properties?.name || `Polygon ${i + 1}`);
+        const name = this._escXml(f.properties?.name || `${entry.name} ${i + 1}`);
         const geom = f.geometry;
         if (!geom) return '';
 
@@ -271,33 +305,21 @@
       const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>GIS Browser エクスポート</name>
-    <description>生成日時: ${new Date().toLocaleString('ja-JP')}</description>
+    <name>${this._escXml(entry.name)}</name>
+    <description>エクスポート元: ${this._escXml(entry.name)} (生成日時: ${new Date().toLocaleString('ja-JP')})</description>
     ${pinPlacemarks}
     ${vectorPlacemarks}
   </Document>
 </kml>`;
 
-      // 単一レイヤー名があればそれをファイル名に反映
-      let filename = `gis_export_${this._timestamp()}.kml`;
-      const vectorEntries = [];
-      if (GIS.AppState && GIS.AppState.layers) {
-        GIS.AppState.layers.forEach(e => {
-          if (e.type !== 'geotiff' && e.type !== 'pin' && e.type !== 'tile') {
-            vectorEntries.push(e);
-          }
-        });
-      }
-      if (vectorEntries.length === 1 && vectorEntries[0].name) {
-        filename = `${vectorEntries[0].name}_${this._timestamp()}.kml`;
-      }
+      const filename = `${entry.name}_${this._timestamp()}.kml`;
 
       this._download(
         new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' }),
         filename
       );
 
-      GIS.UI.showToast(`✅ KMLを保存しました (ピン: ${pins.length}, 図形: ${vectorFeatures.length})`, 'success');
+      GIS.UI.showToast(`✅ 『${entry.name}』(${vectorFeatures.length + pins.length}件) をKML形式で保存しました`, 'success');
     },
 
     /**

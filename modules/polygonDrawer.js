@@ -15,6 +15,12 @@
     _pointCount: 0,
     _lineCount: 0,
     _polygonCount: 0,
+    _sessionCount: 0,
+    _sessionLayerId: null,
+    _sessionFeatureGroup: null,
+    _sessionGeoJSON: null,
+    _wasPanelCollapsed: false,
+    _wasLegendHidden: true,
     _toolbarInitialized: false,
 
     /**
@@ -51,7 +57,7 @@
     },
 
     /**
-     * 作図を開始する
+     * 作図を開始する（操作パネル・凡例を自動で閉じ、新規セッションを開始）
      * @param {'point' | 'line' | 'polygon'} mode 
      */
     startDrawing(mode = 'polygon') {
@@ -63,6 +69,24 @@
       this._points = [];
       this._tempMarkers = [];
       this._clearKinkMarkers();
+
+      // 新しい作図セッションの初期化（このセッションで作成した図形は1つのレイヤに統合）
+      this._sessionLayerId = null;
+      this._sessionFeatureGroup = null;
+      this._sessionGeoJSON = null;
+
+      // 操作パネルを自動的に閉じる（折りたたむ）
+      if (GIS.FloatingPanel) {
+        this._wasPanelCollapsed = !!GIS.FloatingPanel._collapsed;
+        GIS.FloatingPanel.collapse();
+      }
+
+      // 凡例パネル（能登半島LiDAR凡例等）を自動的に閉じる
+      const legendPanel = document.getElementById('noto-legend-panel');
+      if (legendPanel) {
+        this._wasLegendHidden = legendPanel.classList.contains('hidden');
+        legendPanel.classList.add('hidden');
+      }
 
       // パネルボタンのアクティブ表示
       const panelBtn = document.getElementById('btn-toggle-drawing');
@@ -84,7 +108,7 @@
     },
 
     /**
-     * 描画をキャンセルまたは終了する
+     * 描画を終了する（操作パネル・凡例を自動で復帰）
      */
     stopDrawing() {
       if (!this._isDrawing) return;
@@ -107,6 +131,24 @@
 
       this._clearTempLayers();
       this._points = [];
+
+      // 操作パネルを自動的に開く（作成されたレイヤーを確認できるように展開）
+      if (GIS.FloatingPanel) {
+        GIS.FloatingPanel.expand();
+      }
+
+      // 凡例パネルが以前開いていた場合（またはLiDARレイヤ表示中）に復帰
+      const legendPanel = document.getElementById('noto-legend-panel');
+      if (legendPanel && !this._wasLegendHidden) {
+        legendPanel.classList.remove('hidden');
+      } else if (GIS.NotoLidarHandler && GIS.NotoLidarHandler.updateLegend) {
+        GIS.NotoLidarHandler.updateLegend();
+      }
+
+      // セッション終了
+      this._sessionLayerId = null;
+      this._sessionFeatureGroup = null;
+      this._sessionGeoJSON = null;
     },
 
     /**
@@ -330,6 +372,71 @@
     },
 
     /**
+     * 作図セッションに図形（Leaflet レイヤーおよび GeoJSON Feature）を追加・統合する
+     * 一旦ツールを開始してから終了するまでに作成した図形は全て同じレイヤとして扱う
+     * @param {L.Layer} leafletLayer
+     * @param {object} featureObj
+     * @param {string} defaultName
+     * @returns {string} layerId
+     */
+    _addFeatureToSession(leafletLayer, featureObj, defaultName) {
+      if (!this._sessionLayerId || !this._sessionFeatureGroup) {
+        this._sessionFeatureGroup = L.featureGroup();
+        this._sessionGeoJSON = {
+          type: 'FeatureCollection',
+          features: []
+        };
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const sessionName = `作図 ${y}${m}${d}_${h}${min}`;
+
+        this._sessionLayerId = GIS.AppState.addLayer({
+          name: sessionName,
+          type: 'geojson',
+          layer: this._sessionFeatureGroup,
+          file: null,
+          rawGeoJSON: this._sessionGeoJSON,
+          editable: true,
+          isDrawn: true
+        });
+
+        if (!this._appStateListenersBound && GIS.AppState) {
+          this._appStateListenersBound = true;
+          GIS.AppState.on('layerRemoved', ({ id }) => {
+            if (id === this._sessionLayerId) {
+              this._sessionLayerId = null;
+              this._sessionFeatureGroup = null;
+              this._sessionGeoJSON = null;
+            }
+          });
+          GIS.AppState.on('allLayersCleared', () => {
+            this._sessionLayerId = null;
+            this._sessionFeatureGroup = null;
+            this._sessionGeoJSON = null;
+          });
+        }
+      }
+
+      // レイヤーグループに追加
+      this._sessionFeatureGroup.addLayer(leafletLayer);
+
+      // GeoJSON フィーチャ配列に追記
+      this._sessionGeoJSON.features.push(featureObj);
+
+      // AppState レイヤーエントリの rawGeoJSON を更新
+      const entry = GIS.AppState.layers.get(this._sessionLayerId);
+      if (entry) {
+        entry.rawGeoJSON = this._sessionGeoJSON;
+      }
+
+      return this._sessionLayerId;
+    },
+
+    /**
      * ポイント描画の確定
      * @param {L.LatLng} latlng 
      */
@@ -356,30 +463,21 @@
       `;
       pointMarker.bindPopup(popupHtml, { maxWidth: 280 });
 
-      const rawGeoJSON = {
-        type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: [latlng.lng, latlng.lat]
-          },
-          properties: {
-            name: pointName,
-            isDrawn: true
-          }
-        }]
+      const feature = {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [latlng.lng, latlng.lat]
+        },
+        properties: {
+          name: pointName,
+          isDrawn: true
+        }
       };
 
-      GIS.AppState.addLayer({
-        name: pointName,
-        type: 'geojson',
-        layer: pointMarker,
-        file: null,
-        rawGeoJSON: rawGeoJSON
-      });
+      this._addFeatureToSession(pointMarker, feature, pointName);
 
-      GIS.UI.showToast(`✅ 『${pointName}』を配置しました`, 'success');
+      GIS.UI.showToast(`✅ 『${pointName}』を作図レイヤーに追加しました`, 'success');
 
       // 続けて配置できるようにヒントを更新
       const hint = document.getElementById('drawing-toolbar-hint');
@@ -428,30 +526,21 @@
       `;
       lineLayer.bindPopup(popupHtml, { maxWidth: 300 });
 
-      const rawGeoJSON = {
-        type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: this._points.map(pt => [pt.lng, pt.lat])
-          },
-          properties: {
-            name: lineName,
-            distance: totalDist,
-            formattedDistance: formattedDist,
-            isDrawn: true
-          }
-        }]
+      const feature = {
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: this._points.map(pt => [pt.lng, pt.lat])
+        },
+        properties: {
+          name: lineName,
+          distance: totalDist,
+          formattedDistance: formattedDist,
+          isDrawn: true
+        }
       };
 
-      GIS.AppState.addLayer({
-        name: lineName,
-        type: 'geojson',
-        layer: lineLayer,
-        file: null,
-        rawGeoJSON: rawGeoJSON
-      });
+      this._addFeatureToSession(lineLayer, feature, lineName);
 
       // 断面図モードの場合は標高断面図を自動生成
       if (this._currentMode === 'profile' && GIS.ElevationHandler) {
@@ -461,7 +550,7 @@
       this._clearTempLayers();
       this._points = [];
 
-      GIS.UI.showToast(`✅ 『${lineName}』(延長: ${formattedDist}) を作成しました`, 'success');
+      GIS.UI.showToast(`✅ 『${lineName}』(延長: ${formattedDist}) を作図レイヤーに追加しました`, 'success');
 
       const hint = document.getElementById('drawing-toolbar-hint');
       if (hint) {
@@ -534,34 +623,23 @@
 
       polygonLayer.bindPopup(createPopupHtml, { maxWidth: 320 });
 
-      const rawGeoJSON = {
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            geometry: {
-              type: 'Polygon',
-              coordinates: [coordinates]
-            },
-            properties: {
-              name: polygonName,
-              area: area,
-              formattedArea: formattedArea,
-              isSelfIntersecting: hasKinks,
-              isDrawn: true
-            }
-          }
-        ]
+      const feature = {
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [coordinates]
+        },
+        properties: {
+          name: polygonName,
+          area: area,
+          formattedArea: formattedArea,
+          isSelfIntersecting: hasKinks,
+          isDrawn: true
+        }
       };
 
-      // AppState にレイヤーとして追加
-      const newLayerId = GIS.AppState.addLayer({
-        name: polygonName,
-        type: 'geojson',
-        layer: polygonLayer,
-        file: null,
-        rawGeoJSON: rawGeoJSON
-      });
+      // AppState の現在セッションレイヤーに追加
+      const newLayerId = this._addFeatureToSession(polygonLayer, feature, polygonName);
 
       // 一括マスク設定が選択されている場合は、この新しいポリゴンを優先適用
       const batchSelect = document.getElementById('batch-mask-select');
@@ -581,7 +659,7 @@
           'warn'
         );
       } else {
-        GIS.UI.showToast(`✅ 『${polygonName}』を作成し、マスクに適用しました`, 'success');
+        GIS.UI.showToast(`✅ 『${polygonName}』(面積: ${formattedArea}) を作図レイヤーに追加しました`, 'success');
       }
 
       const hint = document.getElementById('drawing-toolbar-hint');
