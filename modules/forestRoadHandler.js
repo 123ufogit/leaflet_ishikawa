@@ -19,6 +19,14 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  /** スマホ・タッチ操作環境判定 */
+  function isTouchDevice() {
+    return !!(
+      (typeof L !== 'undefined' && L.Browser && L.Browser.touch) ||
+      ('ontouchstart' in window) ||
+      (navigator.maxTouchPoints > 0) ||
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+    );
   }
 
   GIS.ForestRoadHandler = {
@@ -386,7 +394,7 @@
 
         // ==========================================
         // 2. 小班（shohan.geojson）ポリゴンレイヤー（県営林の手前: pane shohanPane）
-        //    - 塗りつぶし透明
+        //    - 塗りつぶし透過度90%（fillOpacity: 0.1）
         //    - 枠線は林班と同じ色（#1B5E20）、太さは林班(1.5)より細い(0.9)
         //    - カーソル移動で小班番号（枝番）、樹種、面積、植栽年度を表示
         // ==========================================
@@ -454,7 +462,15 @@
               </div>
             </div>
           `;
-          layer.bindPopup(popupContent, { maxWidth: 280, className: 'shohan-leaflet-popup' });
+          // スマホ・タッチ環境では吹き出しの重なりを防ぐためポップアップを無効化しTooltipのみ有効化
+          if (!isTouchDevice()) {
+            layer.bindPopup(popupContent, { maxWidth: 280, className: 'shohan-leaflet-popup' });
+          } else {
+            // スマホ環境: タップ時にTooltipを確実にオープン
+            layer.on('click', (e) => {
+              layer.openTooltip(e.latlng);
+            });
+          }
         };
 
         const shohanLayer = L.geoJSON(shohanData, {
@@ -464,7 +480,7 @@
             weight: 1.2,            // 林班(2.0)より細く、かつ画面上ではっきりと視認できる太さ
             opacity: 1.0,           // 境界線を明瞭に描画
             fillColor: '#2E7D32',
-            fillOpacity: 0.05,      // ほぼ透明（透過度95%）だがポリゴン内部のホバー・クリックを確実に捕捉
+            fillOpacity: 0.1,       // 透過度90%（不透過度10%）
             className: 'shohan-polygon-layer'
           },
           onEachFeature: (feature, layer) => {
