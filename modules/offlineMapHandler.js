@@ -55,8 +55,8 @@
 
     _updateVisibility() {
       if (!this._offlineBtn) return;
-      const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-      this._offlineBtn.style.display = isMobile ? 'flex' : 'none';
+      // iPad（11インチ等）、タブレット、スマホ、PCすべてで常に利用可能にする
+      this._offlineBtn.style.display = 'flex';
     },
 
     _bindEvents() {
