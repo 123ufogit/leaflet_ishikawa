@@ -3788,3 +3788,25 @@ html, body {
   font-weight: 500;
 }
 
+/* 小班ポリゴンレイヤー（視認性向上 & 確実なポインターイベント捕捉） */
+.shohan-polygon-layer {
+  pointer-events: all !important;
+  cursor: pointer;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.65));
+}
+
+.shohan-polygon-layer:hover {
+  stroke: #00E676 !important;
+  stroke-width: 2.4px !important;
+  fill: #00E676 !important;
+  fill-opacity: 0.18 !important;
+}
+
+/* レイヤーリスト選択状態ハイライト（エクスポート対象レイヤー） */
+.layer-item.selected {
+  border-color: #00d7ff !important;
+  background: rgba(0, 215, 255, 0.12) !important;
+  box-shadow: 0 0 8px rgba(0, 215, 255, 0.25) inset;
+}
+
+
