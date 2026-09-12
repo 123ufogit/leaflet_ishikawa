@@ -107,7 +107,9 @@ gis-browser/
 ├── README.md                   # プロジェクト説明書
 ├── data/                       # 地図初期データ
 │   ├── road.js                 # 林道データ
-│   └── keneirin.js             # 県営林データ
+│   ├── keneirin.js             # 県営林データ
+│   ├── shohan.js               # 県営林小班データ（樹種・面積・植栽年）
+│   └── shohan.kml              # 県営林小班KML原本
 ├── modules/                    # 全 JavaScript モジュール群 (24ファイル)
 │   ├── gis_browser.js          # アプリケーションメイン初期化
 │   ├── appState.js             # 中央状態管理 & レイヤーイベントバス
@@ -116,7 +118,7 @@ gis-browser/
 │   ├── geometryEditor.js       # ★ ベクター図形編集・新規作図・図形削除
 │   ├── offlineMapHandler.js    # ★ オフライン地図 IndexedDB キャッシュ
 │   ├── exportHandler.js        # ★ GeoJSON / KML / PDF / PNG 統合エクスポート
-│   ├── forestRoadHandler.js    # ★ 県営林・林道台帳ハンドラ
+│   ├── forestRoadHandler.js    # ★ 県営林・小班・林道台帳ハンドラ（ズーム表示制御）
 │   ├── fileHandler.js          # D&D ファイル判定 & 振り分け
 │   ├── kmlParser.js            # KML/KMZ 解析
 │   ├── geojsonHandler.js       # GeoJSON 描画

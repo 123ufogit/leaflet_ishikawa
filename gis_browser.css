@@ -787,10 +787,27 @@ html, body {
   transition: all var(--transition);
   min-width: 0;
   width: 100%;
+  cursor: pointer;
 }
 .layer-item:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(0, 212, 255, 0.45);
+}
+.layer-item.selected {
+  background: rgba(0, 212, 255, 0.18);
+  border-color: rgba(0, 212, 255, 0.9);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.35), 0 1px 4px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+.layer-item.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-accent, #00d4ff);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 .layer-item.layer-hidden { opacity: 0.45; }
 .layer-item.layer-unsaved {
@@ -801,6 +818,10 @@ html, body {
 .layer-item.layer-unsaved:hover {
   background: rgba(245, 158, 11, 0.24);
   border-color: rgba(245, 158, 11, 0.9);
+}
+.layer-item.layer-unsaved.selected {
+  border-color: #00d4ff;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.4), 0 0 10px rgba(245, 158, 11, 0.22);
 }
 
 .layer-unsaved-badge {
@@ -2854,6 +2875,7 @@ html, body {
   gap: 12px;
   z-index: 1000;
   pointer-events: auto;
+  -webkit-touch-callout: none;
 }
 
 .btn-mobile-floating {
@@ -2873,6 +2895,8 @@ html, body {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 
 .btn-mobile-floating:hover {
@@ -3605,6 +3629,9 @@ html, body {
   cursor: text;
   border-bottom: 1px dashed transparent;
   transition: all 0.15s ease;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .layer-name.can-rename:hover {
@@ -3630,12 +3657,16 @@ html, body {
   width: 140px;
   outline: none;
   box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .layer-vis-btn {
   transition: transform 0.15s ease, background 0.15s ease;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 
 .layer-vis-btn.is-pressing {
@@ -3647,3 +3678,113 @@ html, body {
 .layer-vis-btn.vis-zoom-triggered {
   animation: pulseHighlight 0.6s ease;
 }
+
+/* ======================================================
+   小班（shohan）ツールチップ＆ポップアップスタイル
+   ====================================================== */
+.shohan-leaflet-tooltip {
+  background: rgba(15, 23, 42, 0.94) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(46, 125, 50, 0.7) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45) !important;
+  pointer-events: none !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.shohan-leaflet-tooltip::before {
+  border-top-color: rgba(15, 23, 42, 0.94) !important;
+}
+
+.shohan-tooltip-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #81c784;
+  margin-bottom: 5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shohan-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.shohan-tooltip-row .tt-label {
+  color: #94a3b8;
+  font-size: 11.5px;
+}
+
+.shohan-tooltip-row .tt-val {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+/* 小班ポップアップ */
+.shohan-leaflet-popup .leaflet-popup-content-wrapper {
+  background: rgba(15, 23, 42, 0.96);
+  color: #f8fafc;
+  border: 1px solid rgba(46, 125, 50, 0.5);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.shohan-leaflet-popup .leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.96);
+}
+
+.shohan-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.shohan-badge {
+  background: #2e7d32;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.shohan-title {
+  font-size: 13px;
+  color: #81c784;
+}
+
+.shohan-popup-body {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shohan-prop-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shohan-prop-row .prop-label {
+  color: #94a3b8;
+}
+
+.shohan-prop-row .prop-val {
+  color: #f1f5f9;
+  font-weight: 500;
+}
+
