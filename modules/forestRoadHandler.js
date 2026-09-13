@@ -19,6 +19,7 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
   /** スマホ・タッチ操作環境判定 */
   function isTouchDevice() {
     return !!(
