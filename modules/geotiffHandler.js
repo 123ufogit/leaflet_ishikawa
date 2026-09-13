@@ -158,8 +158,12 @@
         const minV = (rasterResult.minVal !== Infinity) ? rasterResult.minVal : 0;
         const maxV = (rasterResult.maxVal !== -Infinity) ? rasterResult.maxVal : 255;
 
+        const layerName = (GIS.FileHandler && GIS.FileHandler.stripExtension)
+          ? GIS.FileHandler.stripExtension(file.name)
+          : file.name.replace(/\.[^/.]+$/, '');
+
         GIS.AppState.addLayer({
-          name: file.name,
+          name: layerName,
           type: 'geotiff',
           layer: overlay,
           file: file,

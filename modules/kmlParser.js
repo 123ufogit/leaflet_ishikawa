@@ -44,8 +44,12 @@
 
       if (featureCount === 0) throw new Error('KMLファイルにフィーチャが見つかりませんでした。');
 
+      const layerName = (GIS.FileHandler && GIS.FileHandler.stripExtension)
+        ? GIS.FileHandler.stripExtension(file.name)
+        : file.name.replace(/\.[^/.]+$/, '');
+
       const id = GIS.AppState.addLayer({
-        name: file.name,
+        name: layerName,
         type: 'kml',
         layer: layerGroup,
         file: file

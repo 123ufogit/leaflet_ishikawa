@@ -352,13 +352,7 @@
         // Leafletタイルを確実に表示するため少し待つ
         await new Promise(r => setTimeout(r, 500));
 
-        const canvas = await window.html2canvas(mapEl, {
-          useCORS:         true,
-          allowTaint:      true,
-          scale:           window.devicePixelRatio || 1,
-          logging:         false,
-          foreignObjectRendering: false
-        });
+        const canvas = await this._captureMapCanvas(mapEl);
 
         // PDF出力ダイアログ
         const format = await this._askExportFormat();
@@ -426,13 +420,7 @@
       try {
         await new Promise(r => setTimeout(r, 500));
 
-        const canvas = await window.html2canvas(mapEl, {
-          useCORS:         true,
-          allowTaint:      true,
-          scale:           window.devicePixelRatio || 1,
-          logging:         false,
-          foreignObjectRendering: false
-        });
+        const canvas = await this._captureMapCanvas(mapEl);
 
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -486,13 +474,7 @@
       try {
         await new Promise(r => setTimeout(r, 500));
 
-        const canvas = await window.html2canvas(mapEl, {
-          useCORS:         true,
-          allowTaint:      true,
-          scale:           window.devicePixelRatio || 1,
-          logging:         false,
-          foreignObjectRendering: false
-        });
+        const canvas = await this._captureMapCanvas(mapEl);
 
         canvas.toBlob(blob => {
           this._download(blob, `gis_map_${this._timestamp()}.png`);
@@ -505,6 +487,123 @@
       } finally {
         GIS.FloatingPanel.setVisible(true);
       }
+    },
+
+    /**
+     * html2canvas で地図要素をキャプチャし、各ペインのSVGベクターレイヤー（県営林・小班・林道・作図等）を合成したCanvasを生成する
+     * @param {HTMLElement} mapEl
+     * @returns {Promise<HTMLCanvasElement>}
+     */
+    async _captureMapCanvas(mapEl) {
+      const scale = window.devicePixelRatio || 1;
+
+      // 1. html2canvas でベース地図（タイル・画像等）をキャプチャ（SVGは手動で合成するためignoreElementsでスキップし重複描画を防ぐ）
+      const canvas = await window.html2canvas(mapEl, {
+        useCORS:         true,
+        allowTaint:      true,
+        scale:           scale,
+        logging:         false,
+        foreignObjectRendering: false,
+        ignoreElements:  (element) => {
+          return element.tagName && element.tagName.toLowerCase() === 'svg';
+        }
+      });
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return canvas;
+
+      // 2. 地図コンテナ内のすべてのベクターSVG要素（Leafletペイン内）を取得
+      const svgElements = Array.from(mapEl.querySelectorAll('.leaflet-pane svg, #map > svg, svg.leaflet-zoom-animated'));
+      if (svgElements.length === 0) return canvas;
+
+      // 重複を除去し、描画図形を持つSVGのみ抽出
+      const uniqueSvgs = Array.from(new Set(svgElements)).filter(svg => {
+        return svg.querySelector('path, polygon, polyline, circle, rect, line');
+      });
+
+      if (uniqueSvgs.length === 0) return canvas;
+
+      // z-index 順（奥から手前）にソートして正しい描画順を保証
+      uniqueSvgs.sort((a, b) => {
+        const paneA = a.closest('.leaflet-pane');
+        const paneB = b.closest('.leaflet-pane');
+        const zA = paneA ? parseInt(window.getComputedStyle(paneA).zIndex || '0', 10) : 0;
+        const zB = paneB ? parseInt(window.getComputedStyle(paneB).zIndex || '0', 10) : 0;
+        return zA - zB;
+      });
+
+      const mapRect = mapEl.getBoundingClientRect();
+
+      // 3. 各SVG要素を順次画像化してCanvasに描画
+      for (const svg of uniqueSvgs) {
+        try {
+          const svgRect = svg.getBoundingClientRect();
+          if (svgRect.width === 0 || svgRect.height === 0) continue;
+
+          // 地図コンテナ基準の描画先座標とサイズ
+          const dx = (svgRect.left - mapRect.left) * scale;
+          const dy = (svgRect.top - mapRect.top) * scale;
+          const dWidth = svgRect.width * scale;
+          const dHeight = svgRect.height * scale;
+
+          // SVGをクローン
+          const clone = svg.cloneNode(true);
+          clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+          // 元の viewBox と幅・高さを尊重（なければクライアントサイズを付与）
+          const origW = svg.getAttribute('width') || svg.clientWidth || svgRect.width;
+          const origH = svg.getAttribute('height') || svg.clientHeight || svgRect.height;
+          clone.setAttribute('width', origW);
+          clone.setAttribute('height', origH);
+
+          if (!clone.getAttribute('viewBox')) {
+            clone.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
+          }
+
+          // ★最重要: 描画先の dx, dy で位置決めするため、クローン内のCSS transformを解除して二重位置ズレを防ぐ
+          clone.style.transform = 'none';
+          clone.style.webkitTransform = 'none';
+          clone.style.position = 'static';
+          clone.style.margin = '0';
+          clone.style.padding = '0';
+
+          // CSSスタイル属性の補完（外部CSS由来のstrokeやfill, fill-opacityをインライン属性にコピー）
+          const origPaths = svg.querySelectorAll('path, polygon, polyline, circle, rect, line');
+          const clonePaths = clone.querySelectorAll('path, polygon, polyline, circle, rect, line');
+          origPaths.forEach((origEl, i) => {
+            const targetEl = clonePaths[i];
+            if (!targetEl) return;
+            const cs = window.getComputedStyle(origEl);
+            if (!targetEl.getAttribute('fill') && cs.fill) targetEl.setAttribute('fill', cs.fill);
+            if (!targetEl.getAttribute('stroke') && cs.stroke) targetEl.setAttribute('stroke', cs.stroke);
+            if (!targetEl.getAttribute('stroke-width') && cs.strokeWidth) targetEl.setAttribute('stroke-width', cs.strokeWidth);
+            if (!targetEl.getAttribute('stroke-opacity') && cs.strokeOpacity) targetEl.setAttribute('stroke-opacity', cs.strokeOpacity);
+            if (!targetEl.getAttribute('fill-opacity') && cs.fillOpacity) targetEl.setAttribute('fill-opacity', cs.fillOpacity);
+          });
+
+          const xml = new XMLSerializer().serializeToString(clone);
+          const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+          const blobUrl = URL.createObjectURL(svgBlob);
+
+          await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              ctx.drawImage(img, dx, dy, dWidth, dHeight);
+              URL.revokeObjectURL(blobUrl);
+              resolve();
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(blobUrl);
+              resolve();
+            };
+            img.src = blobUrl;
+          });
+        } catch (e) {
+          console.warn('[ExportHandler] SVG composite error:', e);
+        }
+      }
+
+      return canvas;
     },
 
     /**

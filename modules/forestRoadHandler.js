@@ -20,6 +20,7 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
+
   /** スマホ・タッチ操作環境判定 */
   function isTouchDevice() {
     return !!(
@@ -29,6 +30,7 @@
       (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
     );
   }
+
 
   GIS.ForestRoadHandler = {
     isLoaded: false,
@@ -361,7 +363,13 @@
           });
         };
 
+        // ジオメトリ有効性フィルタ（万が一のnull geometryや座標欠損フィーチャを安全に除外）
+        const validGeometryFilter = (feature) => {
+          return !!(feature && feature.geometry && feature.geometry.coordinates && feature.geometry.coordinates.length > 0);
+        };
+
         const keneirinLayer = L.geoJSON(keneirinData, {
+          filter: validGeometryFilter,
           pane: 'keneirinPane',
           style: {
             color: '#1B5E20',       // 濃緑の境界線
@@ -395,7 +403,7 @@
 
         // ==========================================
         // 2. 小班（shohan.geojson）ポリゴンレイヤー（県営林の手前: pane shohanPane）
-        //    - 塗りつぶし透過度90%（fillOpacity: 0.1）
+        //    - 塗りつぶし透明
         //    - 枠線は林班と同じ色（#1B5E20）、太さは林班(1.5)より細い(0.9)
         //    - カーソル移動で小班番号（枝番）、樹種、面積、植栽年度を表示
         // ==========================================
@@ -463,7 +471,7 @@
               </div>
             </div>
           `;
-          // スマホ・タッチ環境では吹き出しの重なりを防ぐためポップアップを無効化しTooltipのみ有効化
+          // スマホ・タッチ操作環境では吹き出しの重なりを防ぐためポップアップを無効化しTooltipのみ有効化
           if (!isTouchDevice()) {
             layer.bindPopup(popupContent, { maxWidth: 280, className: 'shohan-leaflet-popup' });
           } else {
@@ -475,6 +483,7 @@
         };
 
         const shohanLayer = L.geoJSON(shohanData, {
+          filter: validGeometryFilter,
           pane: 'shohanPane',
           style: {
             color: '#1B5E20',       // 林班と同じ濃緑
@@ -548,6 +557,7 @@
 
         // 1. 下地線（ホワイトハロー / 視認性確保用ケーシング: 透過度50%）
         const casingLayer = L.geoJSON(roadData, {
+          filter: validGeometryFilter,
           pane: 'forestRoadPane',
           style: {
             color: '#FFFFFF',
@@ -561,6 +571,7 @@
 
         // 2. 本線（茶色基調・バーントアンバー: 透過度50%）
         const coreLayer = L.geoJSON(roadData, {
+          filter: validGeometryFilter,
           pane: 'forestRoadPane',
           style: {
             color: '#7B3F00',

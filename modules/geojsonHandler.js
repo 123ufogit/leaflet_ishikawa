@@ -54,8 +54,12 @@
         onEachFeature: (feature, layer) => this._onEachFeature(feature, layer)
       });
 
+      const layerName = (GIS.FileHandler && GIS.FileHandler.stripExtension)
+        ? GIS.FileHandler.stripExtension(file.name)
+        : file.name.replace(/\.[^/.]+$/, '');
+
       GIS.AppState.addLayer({
-        name: file.name,
+        name: layerName,
         type: 'geojson',
         layer: leafletLayer,
         rawGeoJSON: geojson,

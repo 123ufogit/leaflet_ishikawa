@@ -325,6 +325,11 @@
       const unsavedClass = entry.isUnsaved ? ' layer-unsaved' : '';
       const unsavedBadgeHtml = entry.isUnsaved ? '<span class="layer-unsaved-badge" title="編集内容が未保存です">未保存</span>' : '';
 
+      const badgeInfo = this._getFormatBadgeInfo(entry);
+      const formatBadgeHtml = badgeInfo
+        ? `<span class="layer-format-badge ${badgeInfo.className}" title="${badgeInfo.title}">${badgeInfo.label}</span>`
+        : '';
+
       li.className = `layer-item${unsavedClass}`;
       li.dataset.layerId = entry.id;
 
@@ -333,6 +338,7 @@
           <button class="layer-vis-btn${canZoom ? ' can-zoom' : ''}" ${visTitleAttr} data-id="${entry.id}">👁</button>
           <span class="layer-type-icon">${typeIcon}</span>
           <span class="layer-name${canRenameClass}" title="${nameTitleAttr}">${entry.name}</span>
+          ${formatBadgeHtml}
           ${unsavedBadgeHtml}
           ${zoningBtnHtml}
           <button class="layer-del-btn" title="削除" data-id="${entry.id}">✕</button>
@@ -803,8 +809,75 @@
      * @returns {string}
      */
     _getTypeIcon(type) {
-      const icons = { kml: '🗺️', geojson: '📐', image: '📷', geotiff: '🛰️', pin: '📍', track: '🚶' };
+      const icons = {
+        kml:        '🗺️',
+        kmz:        '🗺️',
+        geojson:    '📐',
+        image:      '📷',
+        geotiff:    '🛰️',
+        gpx:        '🚴',
+        pin:        '📍',
+        track:      '🚶',
+        drawing:    '✏️',
+        vectorgrid: '🌲'
+      };
       return icons[type] || '📄';
+    },
+
+    /**
+     * ファイル形式・レイヤー種別の小バッジ情報（ラベル、クラス名、ツールチップ）を返す
+     * @param {object} entry
+     * @returns {{ label: string, className: string, title: string }|null}
+     */
+    _getFormatBadgeInfo(entry) {
+      if (!entry) return null;
+
+      // 1. entry.file がある場合（ドロップまたはファイル選択で読み込んだファイル）
+      if (entry.file && entry.file.name) {
+        const ext = entry.file.name.split('.').pop().toLowerCase();
+        if (ext === 'geojson' || ext === 'json') {
+          return { label: 'GeoJSON', className: 'format-geojson', title: `形式: GeoJSON (${entry.file.name})` };
+        }
+        if (ext === 'kml') {
+          return { label: 'KML', className: 'format-kml', title: `形式: KML (${entry.file.name})` };
+        }
+        if (ext === 'kmz') {
+          return { label: 'KMZ', className: 'format-kmz', title: `形式: KMZ (${entry.file.name})` };
+        }
+        if (ext === 'gpx') {
+          return { label: 'GPX', className: 'format-gpx', title: `形式: GPX (${entry.file.name})` };
+        }
+        if (ext === 'tif' || ext === 'tiff') {
+          return { label: 'TIFF', className: 'format-geotiff', title: `形式: GeoTIFF (${entry.file.name})` };
+        }
+        if (['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp'].includes(ext)) {
+          return { label: 'IMG', className: 'format-image', title: `形式: 画像 (${entry.file.name})` };
+        }
+      }
+
+      // 2. entry.type からの判定（プリセットレイヤーや直接生成されたレイヤー）
+      switch (entry.type) {
+        case 'geojson':
+          return { label: 'GeoJSON', className: 'format-geojson', title: '形式: GeoJSON' };
+        case 'kml':
+          return { label: 'KML', className: 'format-kml', title: '形式: KML' };
+        case 'gpx':
+          return { label: 'GPX', className: 'format-gpx', title: '形式: GPX' };
+        case 'geotiff':
+          return { label: 'TIFF', className: 'format-geotiff', title: '形式: GeoTIFF' };
+        case 'image':
+          return { label: 'IMG', className: 'format-image', title: '形式: 写真画像' };
+        case 'pin':
+          return { label: 'PIN', className: 'format-pin', title: '形式: 位置情報付き写真ピン' };
+        case 'track':
+          return { label: 'GPS', className: 'format-track', title: '形式: GPSトラックログ' };
+        case 'drawing':
+          return { label: '作図', className: 'format-drawing', title: '形式: ユーザー作図' };
+        case 'vectorgrid':
+          return { label: 'MVT', className: 'format-mvt', title: '形式: ベクトルタイル' };
+        default:
+          return null;
+      }
     }
   };
 

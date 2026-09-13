@@ -25,6 +25,18 @@
   GIS.FileHandler = {
 
     /**
+     * ファイル名から拡張子を取り除いたベース名を返す
+     * 例: 'shohan.geojson' -> 'shohan', 'data.kml' -> 'data'
+     * @param {string} filename
+     * @returns {string}
+     */
+    stripExtension(filename) {
+      if (!filename) return '';
+      const base = String(filename).replace(/\.[^/.]+$/, '');
+      return base || filename;
+    },
+
+    /**
      * ファイル配列を受け取り、各ファイルを適切なハンドラへ振り分ける
      * @param {File[]} files
      */

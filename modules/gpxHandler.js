@@ -237,8 +237,12 @@
 
       layerGroup._gpxPoints = gpxPoints;
 
+      const layerName = (GIS.FileHandler && GIS.FileHandler.stripExtension)
+        ? GIS.FileHandler.stripExtension(file.name)
+        : file.name.replace(/\.[^/.]+$/, '');
+
       GIS.AppState.addLayer({
-        name:  file.name,
+        name:  layerName,
         type:  'gpx',
         layer: layerGroup,
         file:  file
