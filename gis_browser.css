@@ -2058,6 +2058,26 @@ html, body {
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
 }
 
+/* 森林計画（林班）ボタン（幅1/2） */
+.rinpan-action-btn {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.35));
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #34d399;
+}
+
+.rinpan-action-btn:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.5));
+  border-color: #34d399;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+}
+
+.layer-set-btn-row .half-width-btn {
+  flex: 0 0 calc(50% - 4px) !important;
+  max-width: calc(50% - 4px) !important;
+  width: calc(50% - 4px) !important;
+}
+
 /* 林道ポップアップ & ツールチップ */
 .forest-road-leaflet-popup .leaflet-popup-content-wrapper {
   background: #181f33;
@@ -2253,8 +2273,8 @@ html, body {
 .noto-legend-panel {
   position: fixed;
   bottom: 24px;
-  left: 20px;
-  z-index: var(--z-floating);
+  left: 76px;
+  z-index: 1000;
   width: 240px;
   max-height: 380px;
   background: rgba(10, 15, 30, 0.90);
@@ -2359,19 +2379,27 @@ html, body {
 /* ----------------------------------------------------------------
    18. 作図ツール UI & バナー
    ---------------------------------------------------------------- */
-/* レイヤーリスト下部ツールバー (作図・計測ツール) */
+/* レイヤーリスト下部ツールバー (作図・計測 & エクスポート左右50%並び配置) */
 .layer-list-footer {
-  margin-top: 6px;
-  padding-top: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   width: 100%;
 }
 
+.layer-list-footer.action-buttons-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
 /* パネル側 単一作図ボタン */
 .drawing-single-btn {
   width: 100%;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2379,7 +2407,7 @@ html, body {
   background: rgba(0, 212, 255, 0.08);
   border: 1px solid rgba(0, 212, 255, 0.3);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  padding: 6px 8px;
   color: var(--color-accent);
   font-family: var(--font-base);
   font-size: 11.5px;
@@ -2387,6 +2415,32 @@ html, body {
   cursor: pointer;
   transition: all var(--transition);
   white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.action-buttons-row .drawing-single-btn,
+.action-buttons-row .unified-export-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  width: calc(50% - 4px);
+  height: 38px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px 8px;
+}
+
+.action-buttons-row .drawing-btn-label,
+.action-buttons-row .unified-export-label {
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-buttons-row .unified-export-badge {
+  padding: 1px 4px;
+  font-size: 9px;
+  flex-shrink: 0;
 }
 
 .drawing-single-btn:hover {
@@ -2941,7 +2995,7 @@ html, body {
    ====================================================== */
 .mobile-floating-tools {
   position: fixed;
-  bottom: 42px;
+  bottom: 24px;
   left: 16px;
   display: flex;
   flex-direction: column;
@@ -3094,21 +3148,28 @@ html, body {
    最近読み込んだレイヤ ボタン & キャッシュ管理
    ====================================================== */
 .btn-recent-layers {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  flex: 1;
+  min-width: 0;
   width: 100%;
-  margin-top: 8px;
-  padding: 8px 12px;
+  margin-top: 0;
+  padding: 8px 6px;
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(16, 185, 129, 0.2));
   border: 1px solid rgba(0, 212, 255, 0.4);
   border-radius: var(--radius-sm);
   color: #ffffff;
-  font-size: 12px;
+  font-family: var(--font-base);
+  font-size: 11.5px;
   font-weight: 600;
+  letter-spacing: -0.2px;
   cursor: pointer;
   transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .btn-recent-layers:hover {
@@ -3881,5 +3942,192 @@ html, body {
   background: rgba(0, 215, 255, 0.12) !important;
   box-shadow: 0 0 8px rgba(0, 215, 255, 0.25) inset;
 }
+
+/* ==================== レイヤー形式バッジ ==================== */
+.layer-format-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.2;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  user-select: none;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.layer-format-badge.format-fgb {
+  background: rgba(14, 165, 233, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.45);
+  box-shadow: 0 0 6px rgba(14, 165, 233, 0.2);
+}
+
+.layer-format-badge.format-shp {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.2);
+}
+
+.layer-format-badge.format-geojson {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.layer-format-badge.format-kml,
+.layer-format-badge.format-kmz {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.layer-format-badge.format-gpx {
+  background: rgba(236, 72, 153, 0.18);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.4);
+}
+
+.layer-format-badge.format-geotiff {
+  background: rgba(6, 182, 212, 0.18);
+  color: #22d3ee;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+}
+
+.layer-format-badge.format-image,
+.layer-format-badge.format-pin {
+  background: rgba(234, 179, 8, 0.18);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.layer-format-badge.format-track {
+  background: rgba(99, 102, 241, 0.18);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.layer-format-badge.format-drawing {
+  background: rgba(249, 115, 22, 0.18);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+}
+
+.layer-format-badge.format-mvt {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+/* ==================== 林班（RINPAN）専用スタイル & ラベル ==================== */
+.rinpan-polygon-layer {
+  pointer-events: auto !important;
+  cursor: default !important;
+}
+
+.rinpan-center-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  cursor: default !important;
+}
+
+.rinpan-center-label::before,
+.rinpan-center-label::after {
+  display: none !important;
+}
+
+.rinpan-label-text {
+  display: inline-block;
+  font-family: var(--font-base, 'Inter', -apple-system, sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b; /* 枠線と同じ細い灰色 */
+  line-height: 1;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  /* 周囲を白く縁取り (Halo effect) */
+  text-shadow:
+    -1.5px -1.5px 0 #ffffff,
+     1.5px -1.5px 0 #ffffff,
+    -1.5px  1.5px 0 #ffffff,
+     1.5px  1.5px 0 #ffffff,
+     0px   -1.5px 0 #ffffff,
+     0px    1.5px 0 #ffffff,
+    -1.5px  0px   0 #ffffff,
+     1.5px  0px   0 #ffffff,
+     0px    0px   2px #ffffff,
+     0px    0px   4px #ffffff;
+}
+
+/* ズームレベル15未満ではラベルを完全に非表示 */
+.rinpan-labels-hidden .rinpan-center-label {
+  display: none !important;
+}
+
+/* ==================== 小班（SHOHAN）専用スタイル & ラベル ==================== */
+.shohan-polygon-layer {
+  pointer-events: auto !important;
+  cursor: default !important;
+}
+
+.shohan-center-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  cursor: default !important;
+}
+
+.shohan-center-label::before,
+.shohan-center-label::after {
+  display: none !important;
+}
+
+.shohan-label-text {
+  display: inline-block;
+  font-family: var(--font-base, 'Inter', -apple-system, sans-serif);
+  font-size: 11px; /* rinpan (13px) より1ポイント以上小さい (2px / 1.5pt小) */
+  font-weight: 600;
+  color: #64748b; /* 枠線と同じ細い灰色 */
+  line-height: 1;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  /* 周囲を白く縁取り (Halo effect) */
+  text-shadow:
+    -1.5px -1.5px 0 #ffffff,
+     1.5px -1.5px 0 #ffffff,
+    -1.5px  1.5px 0 #ffffff,
+     1.5px  1.5px 0 #ffffff,
+     0px   -1.5px 0 #ffffff,
+     0px    1.5px 0 #ffffff,
+    -1.5px  0px   0 #ffffff,
+     1.5px  0px   0 #ffffff,
+     0px    0px   2px #ffffff,
+     0px    0px   4px #ffffff;
+}
+
+/* ズームレベル16未満では小班枠線を非表示 */
+.shohan-polygons-hidden .shohan-polygon-layer {
+  display: none !important;
+}
+
+/* ズームレベル17未満では小班ラベルを非表示 */
+.shohan-labels-hidden .shohan-center-label {
+  display: none !important;
+}
+
 
 

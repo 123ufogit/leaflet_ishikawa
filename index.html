@@ -156,10 +156,10 @@
         <div class="drop-zone-icon">📂</div>
         <div class="drop-zone-text">
           <strong>ここにファイルをドロップ</strong>
-          <span>KML · GeoJSON · GPX · 画像 · GeoTIFF</span>
+          <span>KML · GeoJSON · GPX · 画像 · GeoTIFF · FlatGeobuf · Shapefile</span>
         </div>
         <input type="file" id="file-input" multiple
-               accept=".kml,.kmz,.geojson,.json,.gpx,.tif,.tiff,.jpg,.jpeg,.png,.heic,.heif,.webp"
+               accept=".kml,.kmz,.geojson,.json,.gpx,.tif,.tiff,.jpg,.jpeg,.png,.heic,.heif,.webp,.fgb,.shp,.shx,.dbf,.prj,.cpg,.zip"
                class="file-input-hidden" aria-hidden="true">
       </div>
 
@@ -178,11 +178,16 @@
               🛣️ 県営林・林道
             </button>
           </div>
-          <button id="btn-recent-layers" class="btn-recent-layers" title="最近読み込んだレイヤー履歴を表示・復元">
-            🕒 最近読み込んだレイヤ
-          </button>
+          <div class="layer-set-btn-row">
+            <button id="btn-load-rinpan" class="noto-lidar-action-btn rinpan-action-btn" title="森林計画（林班）レイヤーを追加">
+              🌲 森林計画
+            </button>
+            <button id="btn-recent-layers" class="btn-recent-layers" title="最近読み込んだレイヤー履歴を表示・復元">
+              🕒 最近読み込んだレイヤ
+            </button>
+          </div>
           <p class="accordion-desc">
-            CS立体図、DCHMグレースケール加工、地形変化量2色スケール、簡易オルソ、樹種2024、判読図2024、県営林・林道（ズーム14以上）を表示します。
+            CS立体図、DCHMグレースケール加工、地形変化量2色スケール、簡易オルソ、樹種2024、判読図2024、県営林・林道（ズーム14以上）、森林計画を表示します。
           </p>
         </div>
       </div>
@@ -198,33 +203,25 @@
         <ul id="layer-list" class="layer-list" role="list" aria-label="読み込み済みレイヤー">
           <li class="layer-list-empty">レイヤーがありません</li>
         </ul>
-        <!-- レイヤーリスト下部: 作図ツール起動ボタン -->
-        <div class="layer-list-footer">
+        <!-- レイヤーリスト下部: 作図・計測ツール & エクスポートボタン（左右半分ずつ並び配置） -->
+        <div class="layer-list-footer action-buttons-row">
           <button id="btn-toggle-drawing" class="drawing-single-btn" title="作図・計測ツールを起動（画面上部に切り替えツールバー表示）" aria-label="作図・計測ツール">
             <span class="drawing-btn-icon">✏️</span>
-            <span class="drawing-btn-label">作図・計測ツール</span>
+            <span class="drawing-btn-label">作図・計測</span>
           </button>
-        </div>
-      </div>
-
-      <!-- エクスポートセクション -->
-      <div class="export-section">
-        <div class="export-header-row">
-          <div class="export-section-title">💾 エクスポート</div>
-        </div>
-        <div class="export-unified-container">
           <button id="btn-unified-export" class="export-btn export-btn-primary unified-export-btn" title="設定した形式で自動ダウンロード">
             <span class="unified-export-icon">💾</span>
             <span class="unified-export-label">エクスポート</span>
             <span id="unified-export-badge" class="unified-export-badge">GeoJSON</span>
           </button>
         </div>
-        <!-- エクスポート下部: 設定アイコンボタン -->
-        <div class="export-settings-row">
-          <button id="btn-open-settings" class="btn-settings-icon" title="設定（エクスポート形式 / オフラインキャッシュ管理）" aria-label="設定">
-            ⚙️
-          </button>
-        </div>
+      </div>
+
+      <!-- 設定アイコンボタン -->
+      <div class="export-settings-row">
+        <button id="btn-open-settings" class="btn-settings-icon" title="設定（エクスポート形式 / オフラインキャッシュ管理）" aria-label="設定">
+          ⚙️
+        </button>
       </div>
 
     </div><!-- /.panel-body -->
@@ -556,14 +553,19 @@
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
   <script src="https://unpkg.com/leaflet.vectorgrid/dist/Leaflet.VectorGrid.bundled.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.15.0/proj4.js"></script>
 
   <!-- モジュール（依存順に読み込む） -->
   <script src="modules/ui.js"></script>
   <script src="modules/appState.js"></script>
+  <script src="modules/rinpanStyle.js"></script>
+  <script src="modules/shohanStyle.js"></script>
   <script src="modules/fileHandler.js"></script>
   <script src="modules/floatingPanel.js"></script>
   <script src="modules/kmlParser.js"></script>
   <script src="modules/geojsonHandler.js"></script>
+  <script src="modules/flatgeobufHandler.js"></script>
+  <script src="modules/shapefileHandler.js"></script>
   <script src="modules/gpxHandler.js"></script>
   <script src="modules/imageHandler.js"></script>
   <script src="modules/pinEditor.js"></script>
@@ -576,6 +578,7 @@
   <script src="data/road.js"></script>
   <script src="data/keneirin.js"></script>
   <script src="data/shohan.js"></script>
+  <script src="data/rinpan_data.js"></script>
   <script src="modules/forestRoadHandler.js"></script>
   <script src="modules/addressSearchHandler.js"></script>
   <script src="modules/elevationHandler.js"></script>
