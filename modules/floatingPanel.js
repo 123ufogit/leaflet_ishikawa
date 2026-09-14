@@ -819,7 +819,10 @@
         pin:        '📍',
         track:      '🚶',
         drawing:    '✏️',
-        vectorgrid: '🌲'
+        vectorgrid: '🌲',
+        fgb:        '⚡',
+        shp:        '🔷',
+        shapefile:  '🔷'
       };
       return icons[type] || '📄';
     },
@@ -853,6 +856,12 @@
         if (['jpg', 'jpeg', 'png', 'heic', 'heif', 'webp'].includes(ext)) {
           return { label: 'IMG', className: 'format-image', title: `形式: 画像 (${entry.file.name})` };
         }
+        if (ext === 'fgb') {
+          return { label: 'FGB', className: 'format-fgb', title: `形式: FlatGeobuf (${entry.file.name})` };
+        }
+        if (ext === 'shp' || ext === 'zip') {
+          return { label: 'SHP', className: 'format-shp', title: `形式: Shapefile (${entry.file.name})` };
+        }
       }
 
       // 2. entry.type からの判定（プリセットレイヤーや直接生成されたレイヤー）
@@ -875,6 +884,11 @@
           return { label: '作図', className: 'format-drawing', title: '形式: ユーザー作図' };
         case 'vectorgrid':
           return { label: 'MVT', className: 'format-mvt', title: '形式: ベクトルタイル' };
+        case 'fgb':
+          return { label: 'FGB', className: 'format-fgb', title: '形式: FlatGeobuf' };
+        case 'shp':
+        case 'shapefile':
+          return { label: 'SHP', className: 'format-shp', title: '形式: Shapefile' };
         default:
           return null;
       }

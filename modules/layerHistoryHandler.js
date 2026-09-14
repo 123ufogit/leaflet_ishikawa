@@ -217,7 +217,7 @@
         const row = document.createElement('div');
         row.className = 'history-item-row';
 
-        const typeIcons = { geojson: '📐', kml: '🗺️', gpx: '🚴', geotiff: '🛰️', image: '📷' };
+        const typeIcons = { geojson: '📐', kml: '🗺️', gpx: '🚴', geotiff: '🛰️', image: '📷', fgb: '⚡', shp: '🔷' };
         const icon = typeIcons[item.type] || '📄';
         const sizeMb = (item.size / (1024 * 1024)).toFixed(2);
         const dateStr = new Date(item.timestamp).toLocaleString('ja-JP', {

@@ -35,18 +35,19 @@
 
       const layerGroup = L.featureGroup();
       const styles = this._parseStyles(xmlDoc);
-      let featureCount = 0;
+      const layerName = (GIS.FileHandler && GIS.FileHandler.stripExtension)
+        ? GIS.FileHandler.stripExtension(file.name)
+        : file.name.replace(/\.[^/.]+$/, '');
+
+      const isShohan = !!(GIS.ShohanStyle && GIS.ShohanStyle.isShohan(layerName, file));
+      const isRinpan = !isShohan && !!(GIS.RinpanStyle && GIS.RinpanStyle.isRinpan(layerName, file));
 
       xmlDoc.querySelectorAll('Placemark').forEach(placemark => {
-        const layers = this._placemarkToLeaflet(placemark, styles);
+        const layers = this._placemarkToLeaflet(placemark, styles, isRinpan, isShohan);
         layers.forEach(l => { layerGroup.addLayer(l); featureCount++; });
       });
 
       if (featureCount === 0) throw new Error('KMLファイルにフィーチャが見つかりませんでした。');
-
-      const layerName = (GIS.FileHandler && GIS.FileHandler.stripExtension)
-        ? GIS.FileHandler.stripExtension(file.name)
-        : file.name.replace(/\.[^/.]+$/, '');
 
       const id = GIS.AppState.addLayer({
         name: layerName,
@@ -184,7 +185,7 @@
      * @param {Map} styles
      * @returns {L.Layer[]}
      */
-    _placemarkToLeaflet(placemark, styles) {
+    _placemarkToLeaflet(placemark, styles, isRinpan = false, isShohan = false) {
       const name = placemark.querySelector('name')?.textContent || '(名称なし)';
       const desc = placemark.querySelector('description')?.textContent || '';
       const styleUrl = placemark.querySelector('styleUrl')?.textContent;
@@ -195,6 +196,10 @@
       placemark.querySelectorAll('Point coordinates').forEach(coords => {
         const [lon, lat] = coords.textContent.trim().split(',').map(Number);
         if (isNaN(lat) || isNaN(lon)) return;
+        if (isRinpan || isShohan) {
+          // 林班・小班の場合はPointがあっても非表示
+          return;
+        }
         const popupHtml = `<div class="kml-popup">
           <strong>${this._escHtml(name)}</strong>
           ${desc ? `<div class="kml-desc">${this._escHtml(desc)}</div>` : ''}
@@ -213,6 +218,15 @@
       placemark.querySelectorAll('LineString coordinates').forEach(coords => {
         const latlngs = this._parseCoords(coords.textContent);
         if (!latlngs.length) return;
+        if (isRinpan || isShohan) {
+          const polyline = L.polyline(latlngs, {
+            color: '#64748b',
+            weight: 1.2,
+            opacity: 0.9
+          });
+          layers.push(polyline);
+          return;
+        }
         const dist = this._calcLineLength(latlngs);
         const popupHtml = `<div class="kml-popup">
           <strong>${this._escHtml(name)}</strong>
@@ -241,6 +255,26 @@
         });
 
         const latlngs = holes.length ? [outerRing, ...holes] : outerRing;
+
+        if (isShohan && GIS.ShohanStyle) {
+          const poly = L.polygon(latlngs, GIS.ShohanStyle.getStyle());
+          const shohanNo = name !== '(名称なし)' ? name : '';
+          if (shohanNo) {
+            GIS.ShohanStyle.applyCenterLabel(poly, shohanNo);
+          }
+          layers.push(poly);
+          return; // tooltip, popup は不要（表示のみ）
+        }
+
+        if (isRinpan && GIS.RinpanStyle) {
+          const poly = L.polygon(latlngs, GIS.RinpanStyle.getStyle());
+          const rinpanNo = name !== '(名称なし)' ? name : '';
+          if (rinpanNo) {
+            GIS.RinpanStyle.applyCenterLabel(poly, rinpanNo);
+          }
+          layers.push(poly);
+          return; // tooltip, popup は不要（表示のみ）
+        }
 
         // [lat,lon] -> [lon,lat] に変換して面積計算
         const lonlatRing = outerRing.map(([lat, lon]) => [lon, lat]);

@@ -17,6 +17,15 @@
     if (GIS.LayerHistoryHandler) GIS.LayerHistoryHandler.init();
     if (GIS.OfflineMapHandler) GIS.OfflineMapHandler.init(GIS.AppState.map);
     if (GIS.MobileGeolocationHandler) GIS.MobileGeolocationHandler.init(GIS.AppState.map);
+
+    // URLパラメータによる初期データ読み込み（?shohan=1 等）
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('shohan') && window.SHOHAN_GEOJSON && GIS.FileHandler) {
+      setTimeout(() => {
+        const file = new File([JSON.stringify(window.SHOHAN_GEOJSON)], 'shohan.geojson', { type: 'application/geo+json' });
+        GIS.FileHandler.handleFiles([file]);
+      }, 500);
+    }
   });
 
   /**
@@ -72,6 +81,9 @@
     GIS.AppState.map = map;
     GIS.AppState._basemaps = basemaps;
     GIS.AppState._currentBasemap = 'standard';
+
+    if (GIS.RinpanStyle) GIS.RinpanStyle.setupZoomWatcher(map);
+    if (GIS.ShohanStyle) GIS.ShohanStyle.setupZoomWatcher(map);
   }
 
   /**

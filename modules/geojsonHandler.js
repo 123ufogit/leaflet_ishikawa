@@ -48,15 +48,39 @@
       const featureCount = (geojson.features || []).length;
       if (featureCount === 0) throw new Error('GeoJSONにフィーチャが含まれていません。');
 
-      const leafletLayer = L.geoJSON(geojson, {
-        style: (feature) => this._getStyle(feature),
-        pointToLayer: (feature, latlng) => this._pointToLayer(feature, latlng),
-        onEachFeature: (feature, layer) => this._onEachFeature(feature, layer)
-      });
-
       const layerName = (GIS.FileHandler && GIS.FileHandler.stripExtension)
         ? GIS.FileHandler.stripExtension(file.name)
         : file.name.replace(/\.[^/.]+$/, '');
+
+      const sampleFeature = (geojson.features || [])[0];
+      const isShohan = !!(GIS.ShohanStyle && GIS.ShohanStyle.isShohan(layerName, file, sampleFeature));
+      const isRinpan = !isShohan && !!(GIS.RinpanStyle && GIS.RinpanStyle.isRinpan(layerName, file, sampleFeature));
+
+      const leafletLayer = L.geoJSON(geojson, {
+        style: (feature) => {
+          if (isShohan && GIS.ShohanStyle) {
+            return GIS.ShohanStyle.getStyle();
+          }
+          if (isRinpan && GIS.RinpanStyle) {
+            return GIS.RinpanStyle.getStyle();
+          }
+          return this._getStyle(feature);
+        },
+        pointToLayer: (feature, latlng) => this._pointToLayer(feature, latlng),
+        onEachFeature: (feature, layer) => {
+          if (isShohan && GIS.ShohanStyle) {
+            const no = GIS.ShohanStyle.getShohanNo(feature);
+            GIS.ShohanStyle.applyCenterLabel(layer, no);
+            return; // tooltip, popup は不要（表示のみ）
+          }
+          if (isRinpan && GIS.RinpanStyle) {
+            const no = GIS.RinpanStyle.getRinpanNo(feature);
+            GIS.RinpanStyle.applyCenterLabel(layer, no);
+            return; // tooltip, popup は特に不要（表示のみ）
+          }
+          this._onEachFeature(feature, layer);
+        }
+      });
 
       GIS.AppState.addLayer({
         name: layerName,

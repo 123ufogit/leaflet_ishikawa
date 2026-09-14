@@ -140,11 +140,39 @@
       if (!resultsContainer) return;
 
       try {
-        const url = `https://msearch.gsi.go.jp/address-search/queryString?q=${encodeURIComponent(query)}`;
+        // 国土地理院 住所検索API（CORS対応・認証不要）
+        const url = `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(query)}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error('住所検索サーバーへのリクエストに失敗しました');
+        let items = [];
+        if (res.ok) {
+          items = await res.json();
+        }
 
-        const items = await res.json();
+        // GSI APIでヒットしなかった場合、またはエラー時はOpenStreetMap Nominatimでフォールバック
+        if (!Array.isArray(items) || items.length === 0) {
+          try {
+            const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=jp&limit=6`;
+            const nomRes = await fetch(nomUrl, { headers: { 'Accept': 'application/json' } });
+            if (nomRes.ok) {
+              const nomData = await nomRes.json();
+              if (Array.isArray(nomData) && nomData.length > 0) {
+                items = nomData.map(item => ({
+                  type: 'Feature',
+                  geometry: {
+                    type: 'Point',
+                    coordinates: [parseFloat(item.lon), parseFloat(item.lat)]
+                  },
+                  properties: {
+                    title: item.display_name
+                  }
+                }));
+              }
+            }
+          } catch (nomErr) {
+            console.warn('[AddressSearch] Nominatim fallback failed:', nomErr);
+          }
+        }
+
         if (!Array.isArray(items) || items.length === 0) {
           this._renderResults([], query);
           return;
