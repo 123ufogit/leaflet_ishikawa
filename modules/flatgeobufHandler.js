@@ -149,7 +149,7 @@
      * @param {File|string} fileOrUrl
      * @param {string} [customName]
      */
-    async load(fileOrUrl, customName) {
+    async load(fileOrUrl, customName, isLayerSet = false) {
       if (!fileOrUrl) return;
 
       const isFile = (typeof fileOrUrl !== 'string' && fileOrUrl instanceof Blob);
@@ -231,8 +231,12 @@
       const isShohan = !!(GIS.ShohanStyle && GIS.ShohanStyle.isShohan(layerName, fileOrUrl, sampleFeature));
       const isRinpan = !isShohan && !!(GIS.RinpanStyle && GIS.RinpanStyle.isRinpan(layerName, fileOrUrl, sampleFeature));
 
+      // FGB専用 Canvas レンダラー（DOM要素の大量生成を防ぎ数万件でも高速・滑らかに描画）
+      const canvasRenderer = L.canvas({ padding: 0.5 });
+
       // Leaflet GeoJSON レイヤーの生成
       const leafletLayer = L.geoJSON(geojson, {
+        renderer: canvasRenderer,
         style: (feature) => {
           if (isShohan && GIS.ShohanStyle) {
             return GIS.ShohanStyle.getStyle();
@@ -246,24 +250,28 @@
         onEachFeature: (feature, layer) => {
           if (isShohan && GIS.ShohanStyle) {
             const no = GIS.ShohanStyle.getShohanNo(feature);
-            GIS.ShohanStyle.applyCenterLabel(layer, no);
-            return; // tooltip, popup は特に不要（表示のみ）
+            layer._fgbLabelNo = no;
+            return; // tooltip, popup は特に不要（動的制御で表示）
           }
           if (isRinpan && GIS.RinpanStyle) {
             const no = GIS.RinpanStyle.getRinpanNo(feature);
-            GIS.RinpanStyle.applyCenterLabel(layer, no);
-            return; // tooltip, popup は特に不要（表示のみ）
+            layer._fgbLabelNo = no;
+            return; // tooltip, popup は特に不要（動的制御で表示）
           }
           this._onEachFeature(feature, layer);
         }
       });
+
+      // 動的パフォーマンス制御（Canvas表示制御および画面内・高ズーム時のみラベル生成）
+      this._setupDynamicPerformanceController(leafletLayer, isShohan, isRinpan, canvasRenderer, features.length);
 
       GIS.AppState.addLayer({
         name: layerName,
         type: 'fgb',
         layer: leafletLayer,
         rawGeoJSON: geojson,
-        file: isFile ? fileOrUrl : null
+        file: isFile ? fileOrUrl : null,
+        isLayerSet: isLayerSet || layerName === '森林計画'
       });
 
       // 読み込んだレイヤーの範囲にズーム
@@ -498,6 +506,92 @@
     },
 
     /**
+     * FGB高負荷防止: Canvas表示制御および画面内・高ズーム時のみの動的ラベル制御
+     * @param {L.GeoJSON} leafletLayer
+     * @param {boolean} isShohan
+     * @param {boolean} isRinpan
+     * @param {L.Canvas} canvasRenderer
+     * @param {number} featureCount
+     */
+    _setupDynamicPerformanceController(leafletLayer, isShohan, isRinpan, canvasRenderer, featureCount) {
+      const map = GIS.AppState ? GIS.AppState.map : null;
+      if (!map) return;
+
+      const minLabelZoom = isShohan
+        ? ((GIS.ShohanStyle && GIS.ShohanStyle.MIN_ZOOM_LABEL) || 17)
+        : ((GIS.RinpanStyle && GIS.RinpanStyle.MIN_ZOOM) || 15);
+
+      const minPolygonZoom = isShohan
+        ? ((GIS.ShohanStyle && GIS.ShohanStyle.MIN_ZOOM_POLYGON) || 16)
+        : 1;
+
+      const updateState = () => {
+        if (!map || !map.hasLayer(leafletLayer)) return;
+        const currentZoom = map.getZoom();
+        const container = (canvasRenderer && typeof canvasRenderer.getContainer === 'function')
+          ? canvasRenderer.getContainer()
+          : (canvasRenderer ? canvasRenderer._container : null);
+
+        // 1. ポリゴン自体の表示・非表示ガード（小班のみ低ズームで非表示、一般FGB・林班は全ズームで常時表示）
+        const shouldShowPolygons = (currentZoom >= minPolygonZoom);
+        if (container) {
+          container.style.display = shouldShowPolygons ? '' : 'none';
+        }
+
+        // 2. ラベルの動的生成・破棄（画面内かつ高ズーム時のみ配置してDOM肥大化を防止）
+        if (!isShohan && !isRinpan) return;
+
+        if (currentZoom < minLabelZoom) {
+          leafletLayer.eachLayer(layer => {
+            if (layer.getTooltip && layer.getTooltip()) {
+              layer.unbindTooltip();
+            }
+          });
+          return;
+        }
+
+        const mapBounds = map.getBounds();
+        leafletLayer.eachLayer(layer => {
+          if (!layer._fgbLabelNo) return;
+
+          let isVisible = false;
+          if (typeof layer.getBounds === 'function') {
+            const b = layer.getBounds();
+            isVisible = b && b.isValid() && mapBounds.intersects(b);
+          } else if (typeof layer.getLatLng === 'function') {
+            const ll = layer.getLatLng();
+            isVisible = ll && mapBounds.contains(ll);
+          }
+
+          if (isVisible) {
+            if (!layer.getTooltip || !layer.getTooltip()) {
+              if (isShohan && GIS.ShohanStyle) {
+                GIS.ShohanStyle.applyCenterLabel(layer, layer._fgbLabelNo);
+              } else if (isRinpan && GIS.RinpanStyle) {
+                GIS.RinpanStyle.applyCenterLabel(layer, layer._fgbLabelNo);
+              }
+            }
+          } else {
+            if (layer.getTooltip && layer.getTooltip()) {
+              layer.unbindTooltip();
+            }
+          }
+        });
+      };
+
+      map.on('moveend zoomend', updateState);
+      leafletLayer.on('remove', () => {
+        map.off('moveend zoomend', updateState);
+        leafletLayer.eachLayer(l => {
+          if (l.getTooltip && l.getTooltip()) l.unbindTooltip();
+        });
+      });
+
+      // 初回実行（レイヤー追加後に反映）
+      setTimeout(updateState, 300);
+    },
+
+    /**
      * UIイベント初期化
      */
     init() {
@@ -513,9 +607,9 @@
                 u8[i] = bin.charCodeAt(i);
               }
               const file = new File([u8], 'rinpan.fgb', { type: 'application/octet-stream' });
-              await this.load(file, '森林計画');
+              await this.load(file, '森林計画', true);
             } else {
-              await this.load('data/rinpan.fgb', '森林計画');
+              await this.load('data/rinpan.fgb', '森林計画', true);
             }
           } catch (err) {
             console.error('[FlatGeobufHandler] Error loading rinpan.fgb:', err);

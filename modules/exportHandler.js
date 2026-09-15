@@ -187,7 +187,7 @@
       };
 
       const json = JSON.stringify(geojson, null, 2);
-      const filename = `${entry.name}_${this._timestamp()}.geojson`;
+      const filename = `${entry.name}.geojson`;
 
       this._download(
         new Blob([json], { type: 'application/geo+json' }),
@@ -495,111 +495,159 @@
      * @returns {Promise<HTMLCanvasElement>}
      */
     async _captureMapCanvas(mapEl) {
+      // 進行中のズーム・パンアニメーションを停止し静止状態を保証
+      if (GIS.AppState && GIS.AppState.map && typeof GIS.AppState.map.stop === 'function') {
+        GIS.AppState.map.stop();
+      }
+
       const scale = window.devicePixelRatio || 1;
 
-      // 1. html2canvas でベース地図（タイル・画像等）をキャプチャ（SVGは手動で合成するためignoreElementsでスキップし重複描画を防ぐ）
+      // 1. html2canvas でベース地図（タイル・画像・マーカー・ラベル等）をキャプチャ
+      // ★重要: Leafletの .leaflet-map-pane はパン操作時に CSS transform: translate3d(...) で移動管理されており、
+      // html2canvas がこれを誤って解釈して背景地図とベクターがずれるため、onclone 内で transform を解除し
+      // 同値の left / top に変換して正確にレンダリングさせる。
       const canvas = await window.html2canvas(mapEl, {
         useCORS:         true,
         allowTaint:      true,
         scale:           scale,
         logging:         false,
         foreignObjectRendering: false,
+        width:           mapEl.clientWidth,
+        height:          mapEl.clientHeight,
+        x:               0,
+        y:               0,
+        scrollX:         0,
+        scrollY:         0,
+        windowWidth:     mapEl.clientWidth,
+        windowHeight:    mapEl.clientHeight,
         ignoreElements:  (element) => {
-          return element.tagName && element.tagName.toLowerCase() === 'svg';
+          // SVGおよびCanvasベクターレイヤー（Leafletオーバーレイ）は下段で手動高精度合成するためスキップ
+          const tag = element.tagName ? element.tagName.toLowerCase() : '';
+          if (tag === 'svg') return true;
+          if (tag === 'canvas' && (element.classList.contains('leaflet-zoom-animated') || element.closest('.leaflet-overlay-pane'))) {
+            return true;
+          }
+          return false;
+        },
+        onclone: (clonedDoc) => {
+          // タイルコンテナのアニメーション/トランジションを無効化して静止画像を確実に取得
+          const tileContainers = clonedDoc.querySelectorAll('.leaflet-tile-container');
+          tileContainers.forEach(tc => {
+            tc.style.animation = 'none';
+            tc.style.transition = 'none';
+          });
         }
       });
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return canvas;
 
-      // 2. 地図コンテナ内のすべてのベクターSVG要素（Leafletペイン内）を取得
-      const svgElements = Array.from(mapEl.querySelectorAll('.leaflet-pane svg, #map > svg, svg.leaflet-zoom-animated'));
-      if (svgElements.length === 0) return canvas;
+      const mapRect = mapEl.getBoundingClientRect();
 
-      // 重複を除去し、描画図形を持つSVGのみ抽出
+      // 2. 地図コンテナ内のすべてのベクター要素（SVGおよびCanvas）を収集
+      const svgElements = Array.from(mapEl.querySelectorAll('.leaflet-pane svg, #map > svg, svg.leaflet-zoom-animated'));
       const uniqueSvgs = Array.from(new Set(svgElements)).filter(svg => {
+        if (!svg || svg.style.display === 'none') return false;
         return svg.querySelector('path, polygon, polyline, circle, rect, line');
       });
 
-      if (uniqueSvgs.length === 0) return canvas;
-
-      // z-index 順（奥から手前）にソートして正しい描画順を保証
-      uniqueSvgs.sort((a, b) => {
-        const paneA = a.closest('.leaflet-pane');
-        const paneB = b.closest('.leaflet-pane');
-        const zA = paneA ? parseInt(window.getComputedStyle(paneA).zIndex || '0', 10) : 0;
-        const zB = paneB ? parseInt(window.getComputedStyle(paneB).zIndex || '0', 10) : 0;
-        return zA - zB;
+      const rawCanvases = Array.from(mapEl.querySelectorAll('.leaflet-overlay-pane canvas, .leaflet-pane canvas.leaflet-zoom-animated, .leaflet-pane canvas'));
+      const vectorCanvases = Array.from(new Set(rawCanvases)).filter(c => {
+        if (!c || c.style.display === 'none') return false;
+        if (c.width === 0 || c.height === 0) return false;
+        return true;
       });
 
-      const mapRect = mapEl.getBoundingClientRect();
+      // SVGとCanvasを合体し、表示順（paneのz-indexおよびDOM順）にソート
+      const allVectors = [...uniqueSvgs, ...vectorCanvases];
+      const getPaneZIndex = (el) => {
+        const pane = el.closest('.leaflet-pane');
+        return pane ? parseInt(window.getComputedStyle(pane).zIndex || '0', 10) : 0;
+      };
 
-      // 3. 各SVG要素を順次画像化してCanvasに描画
-      for (const svg of uniqueSvgs) {
+      allVectors.sort((a, b) => {
+        const zA = getPaneZIndex(a);
+        const zB = getPaneZIndex(b);
+        if (zA !== zB) return zA - zB;
+        return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1;
+      });
+
+      // 3. 各ベクター要素を順次Canvasに描画
+      for (const el of allVectors) {
         try {
-          const svgRect = svg.getBoundingClientRect();
-          if (svgRect.width === 0 || svgRect.height === 0) continue;
+          const rect = el.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) continue;
 
-          // 地図コンテナ基準の描画先座標とサイズ
-          const dx = (svgRect.left - mapRect.left) * scale;
-          const dy = (svgRect.top - mapRect.top) * scale;
-          const dWidth = svgRect.width * scale;
-          const dHeight = svgRect.height * scale;
+          const dx = (rect.left - mapRect.left) * scale;
+          const dy = (rect.top - mapRect.top) * scale;
+          const dWidth = rect.width * scale;
+          const dHeight = rect.height * scale;
 
-          // SVGをクローン
-          const clone = svg.cloneNode(true);
-          clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+          const tag = el.tagName ? el.tagName.toLowerCase() : '';
 
-          // 元の viewBox と幅・高さを尊重（なければクライアントサイズを付与）
-          const origW = svg.getAttribute('width') || svg.clientWidth || svgRect.width;
-          const origH = svg.getAttribute('height') || svg.clientHeight || svgRect.height;
-          clone.setAttribute('width', origW);
-          clone.setAttribute('height', origH);
+          if (tag === 'canvas') {
+            // HTML5 Canvas 要素（FlatGeobuf 等の L.canvas() レイヤー）の合成
+            const savedAlpha = ctx.globalAlpha;
+            const compOpacity = parseFloat(window.getComputedStyle(el).opacity);
+            if (!isNaN(compOpacity) && compOpacity >= 0 && compOpacity <= 1) {
+              ctx.globalAlpha = compOpacity;
+            }
+            ctx.drawImage(el, dx, dy, dWidth, dHeight);
+            ctx.globalAlpha = savedAlpha;
 
-          if (!clone.getAttribute('viewBox')) {
-            clone.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
+          } else if (tag === 'svg') {
+            // SVG要素（GeoJSON, 作図等）の合成
+            const clone = el.cloneNode(true);
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+            const origW = el.getAttribute('width') || el.clientWidth || rect.width;
+            const origH = el.getAttribute('height') || el.clientHeight || rect.height;
+            clone.setAttribute('width', origW);
+            clone.setAttribute('height', origH);
+
+            if (!clone.getAttribute('viewBox')) {
+              clone.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
+            }
+
+            clone.style.transform = 'none';
+            clone.style.webkitTransform = 'none';
+            clone.style.position = 'static';
+            clone.style.margin = '0';
+            clone.style.padding = '0';
+
+            const origPaths = el.querySelectorAll('path, polygon, polyline, circle, rect, line');
+            const clonePaths = clone.querySelectorAll('path, polygon, polyline, circle, rect, line');
+            origPaths.forEach((origEl, i) => {
+              const targetEl = clonePaths[i];
+              if (!targetEl) return;
+              const cs = window.getComputedStyle(origEl);
+              if (!targetEl.getAttribute('fill') && cs.fill) targetEl.setAttribute('fill', cs.fill);
+              if (!targetEl.getAttribute('stroke') && cs.stroke) targetEl.setAttribute('stroke', cs.stroke);
+              if (!targetEl.getAttribute('stroke-width') && cs.strokeWidth) targetEl.setAttribute('stroke-width', cs.strokeWidth);
+              if (!targetEl.getAttribute('stroke-opacity') && cs.strokeOpacity) targetEl.setAttribute('stroke-opacity', cs.strokeOpacity);
+              if (!targetEl.getAttribute('fill-opacity') && cs.fillOpacity) targetEl.setAttribute('fill-opacity', cs.fillOpacity);
+            });
+
+            const xml = new XMLSerializer().serializeToString(clone);
+            const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+            const blobUrl = URL.createObjectURL(svgBlob);
+
+            await new Promise((resolve) => {
+              const img = new Image();
+              img.onload = () => {
+                ctx.drawImage(img, dx, dy, dWidth, dHeight);
+                URL.revokeObjectURL(blobUrl);
+                resolve();
+              };
+              img.onerror = () => {
+                URL.revokeObjectURL(blobUrl);
+                resolve();
+              };
+              img.src = blobUrl;
+            });
           }
-
-          // ★最重要: 描画先の dx, dy で位置決めするため、クローン内のCSS transformを解除して二重位置ズレを防ぐ
-          clone.style.transform = 'none';
-          clone.style.webkitTransform = 'none';
-          clone.style.position = 'static';
-          clone.style.margin = '0';
-          clone.style.padding = '0';
-
-          // CSSスタイル属性の補完（外部CSS由来のstrokeやfill, fill-opacityをインライン属性にコピー）
-          const origPaths = svg.querySelectorAll('path, polygon, polyline, circle, rect, line');
-          const clonePaths = clone.querySelectorAll('path, polygon, polyline, circle, rect, line');
-          origPaths.forEach((origEl, i) => {
-            const targetEl = clonePaths[i];
-            if (!targetEl) return;
-            const cs = window.getComputedStyle(origEl);
-            if (!targetEl.getAttribute('fill') && cs.fill) targetEl.setAttribute('fill', cs.fill);
-            if (!targetEl.getAttribute('stroke') && cs.stroke) targetEl.setAttribute('stroke', cs.stroke);
-            if (!targetEl.getAttribute('stroke-width') && cs.strokeWidth) targetEl.setAttribute('stroke-width', cs.strokeWidth);
-            if (!targetEl.getAttribute('stroke-opacity') && cs.strokeOpacity) targetEl.setAttribute('stroke-opacity', cs.strokeOpacity);
-            if (!targetEl.getAttribute('fill-opacity') && cs.fillOpacity) targetEl.setAttribute('fill-opacity', cs.fillOpacity);
-          });
-
-          const xml = new XMLSerializer().serializeToString(clone);
-          const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
-          const blobUrl = URL.createObjectURL(svgBlob);
-
-          await new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-              ctx.drawImage(img, dx, dy, dWidth, dHeight);
-              URL.revokeObjectURL(blobUrl);
-              resolve();
-            };
-            img.onerror = () => {
-              URL.revokeObjectURL(blobUrl);
-              resolve();
-            };
-            img.src = blobUrl;
-          });
         } catch (e) {
-          console.warn('[ExportHandler] SVG composite error:', e);
+          console.warn('[ExportHandler] Vector overlay composite error:', e);
         }
       }
 
@@ -649,7 +697,9 @@
      * @returns {string}
      */
     _timestamp() {
-      return new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15);
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
     },
 
     /**
