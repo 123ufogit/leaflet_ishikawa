@@ -182,12 +182,17 @@
             <button id="btn-load-rinpan" class="noto-lidar-action-btn rinpan-action-btn" title="森林計画（林班）レイヤーを追加">
               🌲 森林計画
             </button>
-            <button id="btn-recent-layers" class="btn-recent-layers" title="最近読み込んだレイヤー履歴を表示・復元">
+            <button id="btn-load-geology" class="noto-lidar-action-btn geology-action-btn" title="産総研 20万分の1シームレス地質図（地質図・断層）を追加">
+              🌋 シームレス地質図
+            </button>
+          </div>
+          <div class="layer-set-btn-row">
+            <button id="btn-recent-layers" class="btn-recent-layers full-width-recent-btn" title="最近読み込んだレイヤー履歴を表示・復元">
               🕒 最近読み込んだレイヤ
             </button>
           </div>
           <p class="accordion-desc">
-            CS立体図、DCHMグレースケール加工、地形変化量2色スケール、簡易オルソ、樹種2024、判読図2024、県営林・林道（ズーム14以上）、森林計画を表示します。
+            CS立体図、DCHMグレースケール加工、地形変化量2色スケール、簡易オルソ、樹種2024、判読図2024、県営林・林道（ズーム14以上）、森林計画、シームレス地質図（地質図・断層）を表示します。
           </p>
         </div>
       </div>
@@ -586,6 +591,8 @@
   <script src="modules/mobileGeolocationHandler.js"></script>
   <script src="modules/offlineMapHandler.js"></script>
   <script src="modules/layerHistoryHandler.js"></script>
+  <script src="modules/geologyHandler.js"></script>
+  <script src="modules/themeHandler.js"></script>
 
   <!-- メインアプリ -->
   <script src="modules/gis_browser.js"></script>
