@@ -49,16 +49,6 @@
         fileInput.value = ''; // リセット
       });
 
-      // 一括マスク設定セレクター
-      const batchMaskSelect = document.getElementById('batch-mask-select');
-      if (batchMaskSelect) {
-        batchMaskSelect.addEventListener('change', (e) => {
-          if (GIS.ZoningHandler) {
-            GIS.ZoningHandler.applyBatchMask(e.target.value);
-          }
-        });
-      }
-
       // 作図ツール起動ボタン（単一ボタン）
       const btnToggleDrawing = document.getElementById('btn-toggle-drawing');
       if (btnToggleDrawing) {
@@ -82,10 +72,6 @@
       // 状態変化を反映
       GIS.AppState.on('layerAdded', (entry) => {
         this._addLayerItem(entry);
-        if (GIS.ZoningHandler) {
-          GIS.ZoningHandler.updateAllMaskSelectOptions();
-          GIS.ZoningHandler.refreshMaskedGeoTIFFs(entry.id);
-        }
       });
       GIS.AppState.on('layerRemoved', ({ id }) => {
         if (GIS.AppState.selectedLayerId === id) {
@@ -95,17 +81,9 @@
           }
         }
         this._removeLayerItem(id);
-        if (GIS.ZoningHandler) {
-          GIS.ZoningHandler.updateAllMaskSelectOptions();
-          GIS.ZoningHandler.refreshMaskedGeoTIFFs(id);
-        }
       });
       GIS.AppState.on('layerToggled', ({ id, visible }) => {
         this._updateLayerItemVisibility(id, visible);
-        if (GIS.ZoningHandler) {
-          GIS.ZoningHandler.updateAllMaskSelectOptions();
-          GIS.ZoningHandler.refreshMaskedGeoTIFFs(id);
-        }
       });
       GIS.AppState.on('allLayersCleared', () => {
         GIS.AppState.selectedLayerId = null;
@@ -113,9 +91,6 @@
           GIS.ExportHandler.updateUIBadge();
         }
         this._clearLayerList();
-        if (GIS.ZoningHandler) {
-          GIS.ZoningHandler.updateAllMaskSelectOptions();
-        }
       });
     },
 
@@ -309,10 +284,6 @@
       li.dataset.layerId = entry.id;
 
       const typeIcon = this._getTypeIcon(entry.type);
-      const isGeoTiff = entry.type === 'geotiff' && entry.geotiffInfo;
-      const zoningBtnHtml = isGeoTiff ? `<button class="layer-zoning-toggle-btn" title="シンボロジ / ゾーニング設定" data-id="${entry.id}">🎨 スタイル</button>` : '';
-
-      const drawerHtml = (isGeoTiff && GIS.ZoningHandler) ? GIS.ZoningHandler.createDrawerHtml(entry) : '';
 
       const isTileLayer = entry.type === 'tile' || (entry.layer && (entry.layer instanceof L.TileLayer || entry.layer instanceof L.GridLayer));
       const canZoom = !isTileLayer;
@@ -340,10 +311,8 @@
           <span class="layer-name${canRenameClass}" title="${nameTitleAttr}">${entry.name}</span>
           ${formatBadgeHtml}
           ${unsavedBadgeHtml}
-          ${zoningBtnHtml}
           <button class="layer-del-btn" title="削除" data-id="${entry.id}">✕</button>
         </div>
-        ${drawerHtml}
       `;
 
       const visBtn = li.querySelector('.layer-vis-btn');
@@ -359,13 +328,9 @@
         GIS.AppState.removeLayer(entry.id);
       });
 
-      if (isGeoTiff && GIS.ZoningHandler) {
-        GIS.ZoningHandler.bindDrawerEvents(entry.id, li);
-      }
-
       // レイヤー行クリックによる選択/選択解除（エクスポート対象指定用）
       li.addEventListener('click', (e) => {
-        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.layer-zoning-drawer')) {
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) {
           return;
         }
         this.selectLayer(entry.id);

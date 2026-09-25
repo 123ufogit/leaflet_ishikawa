@@ -57,7 +57,308 @@
     19: { lat: 26.0, lon: 154.0 }
   };
 
+  /**
+   * 各ラスタタイプ専用のカラーパレット定義
+   * p: 0.0〜1.0 の正規化位置, c: [r, g, b]
+   */
+  const COLOR_PALETTES = {
+    // 1. CS立体図 (戸田式CS立体図に準拠: 谷(濃青〜水色) ➔ 平坦(アイボリー白) ➔ 尾根(橙〜深赤))
+    cs: [
+      { p: 0.00, c: [0, 45, 170] },     // 濃青 (最深谷部)
+      { p: 0.25, c: [30, 144, 255] },   // 青〜シアン (谷部)
+      { p: 0.45, c: [185, 230, 255] },  // 淡水色
+      { p: 0.50, c: [255, 255, 245] },  // アイボリー白 (平坦・緩傾斜)
+      { p: 0.55, c: [255, 235, 170] },  // 淡橙
+      { p: 0.75, c: [255, 110, 0] },    // 橙 (尾根)
+      { p: 1.00, c: [200, 0, 30] }      // 深紅 (突出尾根)
+    ],
+
+    // 2. TWI (Topographic Wetness Index / 地形湿潤指数: 乾燥(黄褐・砂色) ➔ 中庸 ➔ 湿潤・谷底(水色〜藍紺))
+    twi: [
+      { p: 0.00, c: [140, 81, 10] },    // 黄褐色・砂色 (極端な乾燥・山稜頂部)
+      { p: 0.20, c: [216, 179, 101] },  // 砂ベージュ (乾燥斜面)
+      { p: 0.40, c: [246, 232, 195] },  // 淡黄 (中庸)
+      { p: 0.55, c: [199, 234, 229] },  // 淡青緑 (湿潤開始)
+      { p: 0.72, c: [90, 180, 172] },   // 翡翠〜水色 (集水凹地)
+      { p: 0.88, c: [1, 102, 94] },     // 濃青緑 (谷筋・水路)
+      { p: 1.00, c: [8, 29, 88] }       // 藍紺 (最湿潤・流水集中域)
+    ],
+
+    // 3. 標高 (DEM: 低標高(深緑) ➔ 丘陵(淡黄緑) ➔ 山地(暖黄・橙) ➔ 高山(暗紅) ➔ 頂峰(雪白))
+    dem: [
+      { p: 0.00, c: [27, 120, 55] },    // 深緑 (低標高・平野部)
+      { p: 0.20, c: [127, 191, 123] },  // 草色 (山麓)
+      { p: 0.40, c: [217, 240, 163] },  // 淡黄緑 (丘陵)
+      { p: 0.60, c: [254, 224, 139] },  // 暖黄 (中山部)
+      { p: 0.75, c: [244, 109, 67] },   // 橙赤 (高山斜面)
+      { p: 0.90, c: [165, 0, 38] },     // 暗紅 (稜線)
+      { p: 1.00, c: [255, 255, 255] }   // 雪白 (最高峰)
+    ],
+
+    // 4. 傾斜量図 (平坦(白・淡黄) ➔ 緩傾斜(青緑) ➔ 中傾斜(橙) ➔ 急傾斜(赤) ➔ 崖(黒赤))
+    slope: [
+      { p: 0.00, c: [255, 255, 255] },  // 白 (0° 平坦)
+      { p: 0.15, c: [237, 248, 177] },  // 淡黄 (緩傾斜)
+      { p: 0.35, c: [127, 205, 187] },  // 青緑 (10〜20°)
+      { p: 0.60, c: [254, 178, 76] },   // 橙 (20〜30°)
+      { p: 0.80, c: [227, 26, 28] },    // 赤 (30〜45°)
+      { p: 1.00, c: [103, 0, 13] }      // 黒赤 (45°以上 崖)
+    ],
+
+    // 5. 不明ラスタ用汎用カラースケール (Turbo: 濃紫 ➔ 青 ➔ シアン ➔ 緑 ➔ 黄 ➔ 橙 ➔ 暗紅)
+    turbo: [
+      { p: 0.00, c: [48, 18, 59] },     // 濃紫
+      { p: 0.15, c: [70, 98, 215] },    // 青
+      { p: 0.35, c: [26, 228, 182] },   // シアン
+      { p: 0.55, c: [162, 252, 60] },   // 黄緑
+      { p: 0.75, c: [250, 186, 57] },   // 橙黄
+      { p: 0.90, c: [226, 58, 7] },     // 朱赤
+      { p: 1.00, c: [122, 4, 3] }       // 暗紅
+    ],
+
+    // 6. 白黒グレースケール
+    grayscale: [
+      { p: 0.00, c: [0, 0, 0] },
+      { p: 1.00, c: [255, 255, 255] }
+    ]
+  };
+
+  const PALETTE_LABELS = {
+    cs: '🗺️ CS立体図',
+    twi: '🌊 TWI（地形湿潤指数）',
+    dem: '⛰️ 標高 (DEM)',
+    slope: '📐 傾斜量図',
+    turbo: '🌈 Turbo (一般ラスタ)',
+    grayscale: '⚪ 白黒グレースケール',
+    photo: '📷 カラー写真・オルソ'
+  };
+
+  const _lutCache = {};
+
+  function getColorLut(paletteName) {
+    if (_lutCache[paletteName]) return _lutCache[paletteName];
+    const stops = COLOR_PALETTES[paletteName] || COLOR_PALETTES.turbo;
+    const lut = new Uint8ClampedArray(256 * 4);
+
+    for (let i = 0; i < 256; i++) {
+      const p = i / 255.0;
+      let c0 = stops[0];
+      let c1 = stops[stops.length - 1];
+
+      for (let s = 0; s < stops.length - 1; s++) {
+        if (stops[s].p <= p && p <= stops[s + 1].p) {
+          c0 = stops[s];
+          c1 = stops[s + 1];
+          break;
+        }
+      }
+
+      const span = c1.p - c0.p;
+      const t = span <= 0 ? 0 : (p - c0.p) / span;
+      lut[i * 4]     = Math.round(c0.c[0] + t * (c1.c[0] - c0.c[0]));
+      lut[i * 4 + 1] = Math.round(c0.c[1] + t * (c1.c[1] - c0.c[1]));
+      lut[i * 4 + 2] = Math.round(c0.c[2] + t * (c1.c[2] - c0.c[2]));
+      lut[i * 4 + 3] = 255;
+    }
+
+    _lutCache[paletteName] = lut;
+    return lut;
+  }
+
   GIS.GeoTiffHandler = {
+
+    /**
+     * GeoTIFFヘッダー・タグ・メタデータおよびファイル名からラスタ種別を自動判別する
+     * @param {GeoTIFF.GeoTIFFImage} image
+     * @param {File} file
+     * @returns {{type: string, label: string, paletteName: string, isMultiBand: boolean, description: string}}
+     */
+    detectRasterType(image, file) {
+      const samplesPerPixel = image.getSamplesPerPixel();
+      const fileDir = (typeof image.getFileDirectory === 'function') ? (image.getFileDirectory() || {}) : {};
+      const photometric = fileDir.PhotometricInterpretation;
+      const colorMap = fileDir.ColorMap;
+      const desc = String(fileDir.ImageDescription || '');
+      const meta = String(fileDir.GDAL_METADATA || '');
+      const software = String(fileDir.Software || '');
+      const fileName = file ? String(file.name || '') : '';
+      const textToScan = `${fileName} ${desc} ${meta} ${software}`.toLowerCase();
+
+      // 1. マルチバンドカラー画像（RGB / RGBA / YCbCr）
+      if (samplesPerPixel >= 3 || photometric === 2 || photometric === 6) {
+        if (/(?:^|[^a-zA-Z])cs(?:map|立体図|_|-|\.|$)|立体図|curvature/i.test(textToScan)) {
+          return {
+            type: 'cs',
+            label: 'CS立体図 (RGBカラー)',
+            paletteName: 'photo',
+            isMultiBand: true,
+            description: 'RGB合成済みCS立体図'
+          };
+        }
+        return {
+          type: 'photo',
+          label: 'カラー写真・オルソ (RGB)',
+          paletteName: 'photo',
+          isMultiBand: true,
+          description: '3バンド以上のフルカラー航空写真・オルソ画像'
+        };
+      }
+
+      // 2. パレットカラー画像（PhotometricInterpretation = 3: Palette）
+      if (photometric === 3 && colorMap && colorMap.length >= 3) {
+        return {
+          type: 'photo',
+          label: 'パレットカラー画像',
+          paletteName: 'palette',
+          isMultiBand: false,
+          colorMap: colorMap,
+          description: 'インデックスカラーパレット画像'
+        };
+      }
+
+      // 3. 単一バンド: CS立体図
+      if (/(?:^|[^a-zA-Z])cs(?:map|立体図|_|-|\.|$)|立体図|曲率|curvature/i.test(textToScan)) {
+        return {
+          type: 'cs',
+          label: 'CS立体図 (専用カラーコード)',
+          paletteName: 'cs',
+          isMultiBand: false,
+          description: '谷(青)〜平坦(淡黄)〜尾根(赤)のCS立体図専用スタイル'
+        };
+      }
+
+      // 4. 単一バンド: TWI (Topographic Wetness Index / 地形湿潤指数)
+      if (/\b(?:twi|wetness|cti)\b|地形湿潤|湿潤指数|湿潤度/i.test(textToScan)) {
+        return {
+          type: 'twi',
+          label: 'TWI (地形湿潤指数 専用カラーコード)',
+          paletteName: 'twi',
+          isMultiBand: false,
+          description: '乾燥(黄褐)〜中庸(淡緑)〜湿潤(水色・濃青)のTWI専用ハイドロロジカルスタイル'
+        };
+      }
+
+      // 5. 単一バンド: 標高データ (DEM / DTM / DSM)
+      if (/\b(?:dem|dtm|dsm|elevation|elev|height|altitude)\b|標高|数値標高|地盤高|標高値/i.test(textToScan)) {
+        return {
+          type: 'dem',
+          label: '標高データ (DEM専用カラーコード)',
+          paletteName: 'dem',
+          isMultiBand: false,
+          description: '低地(緑)〜丘陵(黄緑)〜山地(橙)〜高所(暗紅・白)の地形グラデーション'
+        };
+      }
+
+      // 6. 単一バンド: 傾斜量図 (Slope)
+      if (/\b(?:slope|keisha|gradient)\b|傾斜|傾斜量/i.test(textToScan)) {
+        return {
+          type: 'slope',
+          label: '傾斜量図 (傾斜専用カラーコード)',
+          paletteName: 'slope',
+          isMultiBand: false,
+          description: '平坦(白)〜緩傾斜(黄)〜急傾斜(赤・暗赤)の傾斜角スタイル'
+        };
+      }
+
+      // 7. 不明 / 一般ラスタ (Turboカラースケール)
+      return {
+        type: 'generic',
+        label: '一般ラスタ (Turboカラースケール)',
+        paletteName: 'turbo',
+        isMultiBand: false,
+        description: '高コントラストで連続変化が明瞭な知覚的一様カラースケール'
+      };
+    },
+
+    /**
+     * キャッシュされたラスタデータから指定パレットでCanvas描画を行いDataURLを生成
+     * @param {object} info - entry.geotiffInfo
+     * @param {string} paletteName - 'cs' | 'twi' | 'dem' | 'slope' | 'turbo' | 'grayscale'
+     * @returns {string} DataURL (PNG)
+     */
+    renderRasterCanvas(info, paletteName) {
+      const { rasterData, outW, outH, minVal, maxVal, noData, samplesPerPixel } = info;
+      if (!rasterData) return null;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(outW, outH);
+      const buf = imgData.data;
+
+      const span = (maxVal - minVal) > 0 ? (maxVal - minVal) : 1;
+      const lut = getColorLut(paletteName);
+
+      const total = outW * outH;
+      for (let i = 0; i < total; i++) {
+        let v;
+        if (samplesPerPixel >= 3) {
+          v = (rasterData[i * samplesPerPixel] + rasterData[i * samplesPerPixel + 1] + rasterData[i * samplesPerPixel + 2]) / 3;
+        } else {
+          v = rasterData[i];
+        }
+
+        const isNoData = (noData !== undefined && v === noData) || !isFinite(v);
+        if (isNoData) {
+          buf[i * 4 + 3] = 0;
+        } else {
+          const norm = Math.max(0, Math.min(1, (v - minVal) / span));
+          const lutIdx = Math.floor(norm * 255) * 4;
+          buf[i * 4]     = lut[lutIdx];
+          buf[i * 4 + 1] = lut[lutIdx + 1];
+          buf[i * 4 + 2] = lut[lutIdx + 2];
+          buf[i * 4 + 3] = 255;
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      return canvas.toDataURL('image/png');
+    },
+
+    /**
+     * レイヤーのカラースケール配色を変更して即時反映する
+     * @param {string} layerId
+     * @param {string} paletteName
+     */
+    applyPalette(layerId, paletteName) {
+      const entry = GIS.AppState.layers.get(layerId);
+      if (!entry || !entry.geotiffInfo) return;
+
+      const info = entry.geotiffInfo;
+      const dataUrl = this.renderRasterCanvas(info, paletteName);
+      if (dataUrl) {
+        entry.layer.setUrl(dataUrl);
+        info.currentStyle = paletteName;
+        info.mode = 'palette';
+
+        if (GIS.UI && GIS.UI.showToast) {
+          const label = PALETTE_LABELS[paletteName] || paletteName;
+          GIS.UI.showToast(`🎨 配色スタイルを「${label}」に変更しました`, 'info');
+        }
+      }
+    },
+
+    /**
+     * 元の自動判別スタイルに戻す
+     * @param {string} layerId
+     */
+    restoreDetectedStyle(layerId) {
+      const entry = GIS.AppState.layers.get(layerId);
+      if (!entry || !entry.geotiffInfo) return;
+
+      const info = entry.geotiffInfo;
+      if (info.initialDataUrl) {
+        entry.layer.setUrl(info.initialDataUrl);
+        info.mode = 'detected';
+        info.currentStyle = info.detectedType ? info.detectedType.paletteName : 'detected';
+
+        if (GIS.UI && GIS.UI.showToast) {
+          const label = info.detectedType ? info.detectedType.label : '自動判別スタイル';
+          GIS.UI.showToast(`🎨 「${label}」に戻しました`, 'info');
+        }
+      }
+    },
 
     /**
      * GeoTIFFファイルを読み込み、地図にオーバーレイ表示する
@@ -103,8 +404,8 @@
           await this._yield();
         }
 
-        // Step 4: 地理参照情報を取得
-        GIS.UI.updateProgress(38, '地理参照情報と座標系を解析中...');
+        // Step 4: 地理参照情報とファイル種別を判定
+        GIS.UI.updateProgress(36, '地理参照情報とファイル種別を解析中...');
         await this._yield();
         const boundsInfo = await this._extractBounds(image);
         if (!boundsInfo || !boundsInfo.bounds) {
@@ -116,10 +417,13 @@
 
         const { bounds, crsName } = boundsInfo;
 
-        // Step 5: ラスタを出力解像度で直接読み込んで Canvas 化
-        GIS.UI.updateProgress(45, 'ラスタデータを読み込んでいます...');
+        // ファイル種別（写真、CS立体図、TWI、DEM、傾斜、一般ラスタ等）の自動判別
+        const detectedType = this.detectRasterType(image, file);
+
+        // Step 5: ラスタを出力解像度で直接読み込んで Canvas 化（判別スタイルを適用）
+        GIS.UI.updateProgress(45, `ラスタデータを読み込んでいます [${detectedType.label}]...`);
         const rasterResult = await this._rasterToCanvas(
-          image, outW, outH,
+          image, outW, outH, detectedType,
           (pct, msg) => GIS.UI.updateProgress(pct, msg)
         );
 
@@ -131,28 +435,8 @@
 
         const overlay = L.imageOverlay(dataUrl, bounds, {
           opacity: 0.5,
-          interactive: true
-        });
-
-        overlay.on('click', () => {
-          L.popup()
-            .setLatLng(bounds.getCenter())
-            .setContent(`
-              <div class="geotiff-popup">
-                <strong>🛠️ ${GIS.UI.escHtml(file.name)}</strong>
-                <div>サイズ: ${sizeMB} MB</div>
-                <div>座標系: <span style="color:#38bdf8;font-weight:600;">${GIS.UI.escHtml(crsName || '不明')}</span></div>
-                <div>解像度: ${origW.toLocaleString()}×${origH.toLocaleString()}px</div>
-                ${isDownsampled
-                  ? `<div>表示サイズ: ${outW.toLocaleString()}×${outH.toLocaleString()}px</div>
-                     <div class="compressed-badge">縮小表示中</div>`
-                  : ''}
-                ${rasterResult.minVal !== undefined && rasterResult.minVal !== Infinity
-                  ? `<div style="margin-top:4px;font-size:11px;color:#94a3b8;">値範囲: ${rasterResult.minVal.toFixed(2)} 〜 ${rasterResult.maxVal.toFixed(2)}</div>`
-                  : ''}
-              </div>
-            `)
-            .openOn(GIS.AppState.map);
+          interactive: true,
+          pane: 'rasterPane'
         });
 
         const minV = (rasterResult.minVal !== Infinity) ? rasterResult.minVal : 0;
@@ -162,7 +446,7 @@
           ? GIS.FileHandler.stripExtension(file.name)
           : file.name.replace(/\.[^/.]+$/, '');
 
-        GIS.AppState.addLayer({
+        const layerId = GIS.AppState.addLayer({
           name: layerName,
           type: 'geotiff',
           layer: overlay,
@@ -176,29 +460,68 @@
             outH: outH,
             samplesPerPixel: rasterResult.samplesPerPixel,
             bounds: bounds,
-            useForestMask: true,
+            detectedType: detectedType,
+            currentStyle: detectedType.paletteName,
+            useForestMask: false,
             maskLayerId: document.getElementById('batch-mask-select')?.value || 'all',
             threshold: 4.0,
             colorLow: '#00d7ff',
             colorHigh: '#ffff00',
             opacity: 0.5,
-            mode: 'profitability',
+            mode: 'detected',
             initialDataUrl: dataUrl
           }
         });
 
-        // 初回読み込み直後に 0〜9 閾値 ＆ 森林計画ベクトルタイルマスクを自動適用
-        if (GIS.ZoningHandler) {
-          const newLayerId = Array.from(GIS.AppState.layers.keys()).pop();
-          if (newLayerId) {
-            GIS.ZoningHandler.updateSymbology(newLayerId);
-          }
-        }
+        // クリックポップアップの設定
+        const buildPopupHtml = () => {
+          const entry = GIS.AppState.layers.get(layerId);
+          const currentStyle = (entry && entry.geotiffInfo) ? entry.geotiffInfo.currentStyle : detectedType.paletteName;
+          return `
+            <div class="geotiff-popup">
+              <strong style="display:block;font-size:13px;margin-bottom:4px;">🛰️ ${GIS.UI.escHtml(file.name)}</strong>
+              <div style="margin-bottom:3px;">
+                種別: <span class="geotiff-type-badge">${GIS.UI.escHtml(detectedType.label)}</span>
+              </div>
+              <div>ファイルサイズ: ${sizeMB} MB</div>
+              <div>座標系: <span style="color:#38bdf8;font-weight:600;">${GIS.UI.escHtml(crsName || '不明')}</span></div>
+              <div>解像度: ${origW.toLocaleString()}×${origH.toLocaleString()}px</div>
+              ${isDownsampled
+                ? `<div>表示サイズ: ${outW.toLocaleString()}×${outH.toLocaleString()}px</div>
+                   <div class="compressed-badge">縮小表示中</div>`
+                : ''}
+              ${rasterResult.minVal !== undefined && rasterResult.minVal !== Infinity
+                ? `<div style="margin-top:4px;font-size:11px;color:#94a3b8;">値範囲: ${rasterResult.minVal.toFixed(2)} 〜 ${rasterResult.maxVal.toFixed(2)}</div>`
+                : ''}
+              ${!detectedType.isMultiBand ? `
+                <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.15);">
+                  <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">🎨 配色スタイルの変更:</label>
+                  <select class="geotiff-palette-select" onchange="GIS.GeoTiffHandler.applyPalette('${layerId}', this.value)" style="width:100%;padding:4px 6px;border-radius:4px;background:#1e293b;color:#f8fafc;border:1px solid #475569;font-size:12px;cursor:pointer;">
+                    <option value="cs" ${currentStyle === 'cs' ? 'selected' : ''}>🗺️ CS立体図 (専用カラーコード)</option>
+                    <option value="twi" ${currentStyle === 'twi' ? 'selected' : ''}>🌊 TWI (地形湿潤指数)</option>
+                    <option value="dem" ${currentStyle === 'dem' ? 'selected' : ''}>⛰️ 標高 (DEM地形グラデーション)</option>
+                    <option value="slope" ${currentStyle === 'slope' ? 'selected' : ''}>📐 傾斜量図 (急傾斜強調)</option>
+                    <option value="turbo" ${currentStyle === 'turbo' ? 'selected' : ''}>🌈 Turbo (一般ラスタ)</option>
+                    <option value="grayscale" ${currentStyle === 'grayscale' ? 'selected' : ''}>⚪ 白黒グレースケール</option>
+                  </select>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        };
 
+        overlay.on('click', () => {
+          L.popup()
+            .setLatLng(bounds.getCenter())
+            .setContent(buildPopupHtml())
+            .openOn(GIS.AppState.map);
+        });
+
+        // 地図の表示範囲を調整
         GIS.AppState.map.fitBounds(bounds, { padding: [40, 40] });
         GIS.UI.hideProgress();
         GIS.UI.showToast(
-          `✅ GeoTIFF読み込み完了 [${crsName}]: ${file.name}`,
+          `✅ GeoTIFF読み込み完了 [${detectedType.label}]: ${file.name}`,
           'success'
         );
 
@@ -383,7 +706,7 @@
     // ------------------------------------------------------------------
 
     /**
-     * GeoTIFFラスタをCanvasに描画してDataURLを返す
+     * GeoTIFFラスタをCanvasに描画してDataURLを返す（判別スタイルまたは指定パレット適用）
      *
      * readRasters({ width: outW, height: outH }) で geotiff.js に内部リサンプルを任せる。
      * これにより元解像度の巨大 ImageData を作成するステップが不要になる。
@@ -391,11 +714,13 @@
      * @param {GeoTIFF.GeoTIFFImage} image
      * @param {number} outW   - 出力幅（ピクセル）
      * @param {number} outH   - 出力高（ピクセル）
+     * @param {object} [detectedType] - 判別されたラスタ種別
      * @param {Function} onProgress - (percent: number, message: string) => void
      * @returns {Promise<string>} DataURL (PNG)
      */
-    async _rasterToCanvas(image, outW, outH, onProgress = () => {}) {
+    async _rasterToCanvas(image, outW, outH, detectedType = { paletteName: 'turbo' }, onProgress = () => {}) {
       const samplesPerPixel = image.getSamplesPerPixel();
+      const noData = image.noDataValue;
 
       // 出力解像度で直接読み込む（ここがメモリ節約の核心）
       onProgress(50, `ラスタをデコード中 (${outW}×${outH}px)...`);
@@ -414,75 +739,109 @@
       const ctx     = canvas.getContext('2d');
       const imgData = ctx.createImageData(outW, outH);
       const buf     = imgData.data;
-      const noData  = image.noDataValue;
 
       // チャンク単位で処理する行数
       const ROWS_PER_CHUNK = Math.max(1, Math.ceil(50000 / outW));
 
-      // グレースケール用: 正規化パラメータを事前計算
-      let grayMin = Infinity, grayMax = -Infinity;
-      if (samplesPerPixel < 3) {
-        onProgress(55, '色尺度範囲を分析中...');
-        await this._yield();
-        const step = Math.max(1, Math.floor(data.length / 20000));
-        for (let i = 0; i < data.length; i += step) {
-          const v = data[i];
-          if (isFinite(v)) {
-            if (v < grayMin) grayMin = v;
-            if (v > grayMax) grayMax = v;
-          }
-        }
-      }
+      let minVal = Infinity, maxVal = -Infinity;
 
-      // チャンク分割でピクセルデータを書き込む
-      for (let row = 0; row < outH; row += ROWS_PER_CHUNK) {
-        const rowEnd = Math.min(row + ROWS_PER_CHUNK, outH);
-
-        if (samplesPerPixel >= 3) {
-          // RGB / RGBA
+      if (detectedType.paletteName === 'photo' && samplesPerPixel >= 3) {
+        // マルチバンドカラー写真（RGB / RGBA）
+        for (let row = 0; row < outH; row += ROWS_PER_CHUNK) {
+          const rowEnd = Math.min(row + ROWS_PER_CHUNK, outH);
           for (let r = row; r < rowEnd; r++) {
             for (let c = 0; c < outW; c++) {
               const i = r * outW + c;
-              buf[i * 4]     = data[i * samplesPerPixel];
-              buf[i * 4 + 1] = data[i * samplesPerPixel + 1];
-              buf[i * 4 + 2] = data[i * samplesPerPixel + 2];
-              buf[i * 4 + 3] = samplesPerPixel >= 4 ? data[i * samplesPerPixel + 3] : 255;
+              const rVal = data[i * samplesPerPixel];
+              const gVal = data[i * samplesPerPixel + 1];
+              const bVal = data[i * samplesPerPixel + 2];
+              const isNoData = (noData !== undefined && rVal === noData);
+
+              buf[i * 4]     = rVal;
+              buf[i * 4 + 1] = gVal;
+              buf[i * 4 + 2] = bVal;
+              buf[i * 4 + 3] = isNoData ? 0 : (samplesPerPixel >= 4 ? data[i * samplesPerPixel + 3] : 255);
             }
           }
-        } else {
-          // グレースケール（1バンド）
+          const pct = 58 + Math.round((rowEnd / outH) * 35);
+          onProgress(pct, `描画中... ${Math.round((rowEnd / outH) * 100)}% (${rowEnd.toLocaleString()} / ${outH.toLocaleString()} 行)`);
+          await this._yield();
+        }
+        minVal = 0;
+        maxVal = 255;
+      } else if (detectedType.paletteName === 'palette' && detectedType.colorMap) {
+        // パレットカラー画像（ColorMapテーブル参照）
+        const cm = detectedType.colorMap;
+        const numColors = Math.floor(cm.length / 3);
+        for (let row = 0; row < outH; row += ROWS_PER_CHUNK) {
+          const rowEnd = Math.min(row + ROWS_PER_CHUNK, outH);
+          for (let r = row; r < rowEnd; r++) {
+            for (let c = 0; c < outW; c++) {
+              const i = r * outW + c;
+              const idx = data[i];
+              const isNoData = (noData !== undefined && idx === noData);
+
+              buf[i * 4]     = (cm[idx] >> 8) & 255;
+              buf[i * 4 + 1] = (cm[numColors + idx] >> 8) & 255;
+              buf[i * 4 + 2] = (cm[2 * numColors + idx] >> 8) & 255;
+              buf[i * 4 + 3] = isNoData ? 0 : 255;
+            }
+          }
+          const pct = 58 + Math.round((rowEnd / outH) * 35);
+          onProgress(pct, `描画中... ${Math.round((rowEnd / outH) * 100)}%`);
+          await this._yield();
+        }
+        minVal = 0;
+        maxVal = numColors - 1;
+      } else {
+        // 単一バンドラスタ: CS立体図 / TWI / 標高 / 傾斜 / Turbo / グレースケール
+        onProgress(54, 'ピクセル値範囲を走査中...');
+        await this._yield();
+
+        // 最小値・最大値のスキャン
+        for (let i = 0; i < data.length; i++) {
+          const v = data[i];
+          if (isFinite(v) && (noData === undefined || v !== noData)) {
+            if (v < minVal) minVal = v;
+            if (v > maxVal) maxVal = v;
+          }
+        }
+
+        if (minVal === Infinity || maxVal === -Infinity) {
+          minVal = 0;
+          maxVal = 255;
+        } else if (minVal === maxVal) {
+          maxVal = minVal + 1;
+        }
+
+        const span = maxVal - minVal;
+        const lut = getColorLut(detectedType.paletteName || 'turbo');
+
+        for (let row = 0; row < outH; row += ROWS_PER_CHUNK) {
+          const rowEnd = Math.min(row + ROWS_PER_CHUNK, outH);
           for (let r = row; r < rowEnd; r++) {
             for (let c = 0; c < outW; c++) {
               const i = r * outW + c;
               const v = data[i];
-              const isNoData = noData !== undefined && v === noData;
-              let gray = 128;
-              if (!isNoData) {
-                if (grayMax === grayMin) {
-                  gray = 128;
-                } else if (data instanceof Uint8Array) {
-                  gray = v & 0xFF;
-                } else if (data instanceof Uint16Array) {
-                  gray = Math.round((v / 65535) * 255);
-                } else {
-                  gray = Math.round(((v - grayMin) / (grayMax - grayMin)) * 255);
-                }
+              const isNoData = (noData !== undefined && v === noData) || !isFinite(v);
+
+              if (isNoData) {
+                buf[i * 4 + 3] = 0; // 完全透明
+              } else {
+                const norm = Math.max(0, Math.min(1, (v - minVal) / span));
+                const lutIdx = Math.floor(norm * 255) * 4;
+                buf[i * 4]     = lut[lutIdx];
+                buf[i * 4 + 1] = lut[lutIdx + 1];
+                buf[i * 4 + 2] = lut[lutIdx + 2];
+                buf[i * 4 + 3] = 255;
               }
-              buf[i * 4]     = gray;
-              buf[i * 4 + 1] = gray;
-              buf[i * 4 + 2] = gray;
-              buf[i * 4 + 3] = isNoData ? 0 : 200;
             }
           }
-        }
 
-        // 進捗報告 + UIスレッドへの制御返却
-        const pct = 58 + Math.round((rowEnd / outH) * 35); // 58〜93%
-        onProgress(pct,
-          `描画中... ${Math.round((rowEnd / outH) * 100)}%` +
-          ` (${rowEnd.toLocaleString()} / ${outH.toLocaleString()} 行)`
-        );
-        await this._yield();
+          const pct = 58 + Math.round((rowEnd / outH) * 35);
+          onProgress(pct, `描画中... ${Math.round((rowEnd / outH) * 100)}% (${rowEnd.toLocaleString()} / ${outH.toLocaleString()} 行)`);
+          await this._yield();
+        }
       }
 
       ctx.putImageData(imgData, 0, 0);
@@ -493,8 +852,8 @@
       return {
         dataUrl,
         rasterData: data,
-        minVal: grayMin,
-        maxVal: grayMax,
+        minVal: (minVal !== Infinity) ? minVal : 0,
+        maxVal: (maxVal !== -Infinity) ? maxVal : 255,
         noData: noData,
         outW: outW,
         outH: outH,

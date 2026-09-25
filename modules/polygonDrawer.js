@@ -323,7 +323,8 @@
         this._tempPolyline = L.polyline(guidePoints, {
           color: '#00d7ff',
           weight: 2.5,
-          dashArray: '5, 5'
+          dashArray: '5, 5',
+          pane: 'overlayLinePane'
         }).addTo(map);
       } else {
         this._tempPolyline.setLatLngs(guidePoints);
@@ -364,7 +365,8 @@
       if (!this._tempPolyline) {
         this._tempPolyline = L.polyline(this._points, {
           color: '#00d7ff',
-          weight: 2.5
+          weight: 2.5,
+          pane: 'overlayLinePane'
         }).addTo(map);
       } else {
         this._tempPolyline.setLatLngs(this._points);
@@ -449,7 +451,8 @@
         color: '#00d7ff',
         fillColor: '#ffffff',
         fillOpacity: 0.95,
-        weight: 2.5
+        weight: 2.5,
+        pane: 'overlayPointPane'
       });
 
       const popupHtml = `
@@ -510,7 +513,8 @@
       const lineLayer = L.polyline(this._points, {
         color: '#00d7ff',
         weight: 3.5,
-        opacity: 0.9
+        opacity: 0.9,
+        pane: 'overlayLinePane'
       });
 
       const popupHtml = `
@@ -588,7 +592,8 @@
         color: hasKinks ? '#ef4444' : '#00d7ff',
         weight: 2.5,
         fillColor: hasKinks ? '#ef4444' : '#00d7ff',
-        fillOpacity: hasKinks ? 0.12 : 0
+        fillOpacity: hasKinks ? 0.12 : 0,
+        pane: 'overlayPolygonPane'
       });
 
       // 面積計算
@@ -640,13 +645,6 @@
 
       // AppState の現在セッションレイヤーに追加
       const newLayerId = this._addFeatureToSession(polygonLayer, feature, polygonName);
-
-      // 一括マスク設定が選択されている場合は、この新しいポリゴンを優先適用
-      const batchSelect = document.getElementById('batch-mask-select');
-      if (batchSelect && GIS.ZoningHandler) {
-        batchSelect.value = newLayerId;
-        GIS.ZoningHandler.applyBatchMask(newLayerId);
-      }
 
       this._clearTempLayers();
       this._points = [];

@@ -162,9 +162,14 @@
         <div class="zoning-drawer hidden" id="zoning-drawer-${entry.id}">
           <div class="zoning-drawer-inner">
             
-            <!-- レンダリングモード切替 （収益性 vs 災害リスク） -->
+            <!-- レンダリングモード切替 （自動判別 vs 収益性 vs 災害リスク） -->
             <div class="zoning-section-title">🎨 スタイルモード</div>
             <div class="zoning-mode-pills">
+              <button class="zoning-mode-pill ${currentMode === 'detected' ? 'active' : ''}" 
+                      data-id="${entry.id}" data-mode="detected"
+                      title="元の自動判別スタイル（写真・CS・TWI・DEM・Turbo等）に戻す">
+                🎨 自動判別スタイル
+              </button>
               <button class="zoning-mode-pill ${currentMode === 'profitability' || currentMode === 'threshold' ? 'active' : ''}" 
                       data-id="${entry.id}" data-mode="profitability"
                       title="収益性評価 (≤ t: #00d7ff, > t: #ffff00)">
@@ -272,12 +277,19 @@
         });
       }
 
-      // モード切り替えボタン (収益性 vs 災害リスク)
+      // モード切り替えボタン (自動判別 vs 収益性 vs 災害リスク)
       liElement.querySelectorAll(`.zoning-mode-pill[data-id="${layerId}"]`).forEach(btn => {
         btn.addEventListener('click', () => {
           const mode = btn.dataset.mode;
           liElement.querySelectorAll(`.zoning-mode-pill[data-id="${layerId}"]`).forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
+
+          if (mode === 'detected') {
+            if (GIS.GeoTiffHandler && typeof GIS.GeoTiffHandler.restoreDetectedStyle === 'function') {
+              GIS.GeoTiffHandler.restoreDetectedStyle(layerId);
+            }
+            return;
+          }
 
           let colorLow = '#00d7ff';
           let colorHigh = '#ffff00';
