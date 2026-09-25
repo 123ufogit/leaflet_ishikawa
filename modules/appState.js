@@ -75,11 +75,39 @@
     },
 
     /**
+     * カスタムペインが未初期化の場合に確実に生成する
+     */
+    ensurePanes() {
+      if (!this.map) return;
+      const paneDefs = [
+        { name: 'basemapPane', zIndex: 100 },
+        { name: 'rasterPane', zIndex: 250 },
+        { name: 'keneirinPane', zIndex: 310 },
+        { name: 'shohanPane', zIndex: 318 },
+        { name: 'forestRoadPane', zIndex: 325 },
+        { name: 'overlayPolygonPane', zIndex: 410 },
+        { name: 'overlayLinePane', zIndex: 440 },
+        { name: 'overlayPointPane', zIndex: 470 }
+      ];
+      paneDefs.forEach(def => {
+        if (!this.map.getPane(def.name)) {
+          try {
+            const p = this.map.createPane(def.name);
+            p.style.zIndex = def.zIndex;
+          } catch (e) {
+            console.warn('[AppState] createPane warning:', def.name, e);
+          }
+        }
+      });
+    },
+
+    /**
      * レイヤーを追加する
      * @param {object} layerObj - { name, type, layer, file }
      * @returns {string} 追加したレイヤーのID
      */
     addLayer(layerObj) {
+      this.ensurePanes();
       const id = this.generateId();
       const entry = { id, visible: true, ...layerObj };
       this.layers.set(id, entry);

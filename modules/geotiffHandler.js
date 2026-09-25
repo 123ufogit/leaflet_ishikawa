@@ -433,10 +433,22 @@
         GIS.UI.updateProgress(97, '地図に追加中...');
         await this._yield();
 
+        // ラスターペインの存在確認・自動作成（未初期化時のエラー防止）
+        const map = GIS.AppState.map;
+        if (map && !map.getPane('rasterPane')) {
+          try {
+            const rPane = map.createPane('rasterPane');
+            rPane.style.zIndex = 250;
+          } catch (e) {
+            console.warn('[GeoTIFF] rasterPane creation warning:', e);
+          }
+        }
+        const targetPane = (map && map.getPane('rasterPane')) ? 'rasterPane' : 'overlayPane';
+
         const overlay = L.imageOverlay(dataUrl, bounds, {
           opacity: 0.5,
           interactive: true,
-          pane: 'rasterPane'
+          pane: targetPane
         });
 
         const minV = (rasterResult.minVal !== Infinity) ? rasterResult.minVal : 0;
